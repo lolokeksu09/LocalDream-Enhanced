@@ -15,6 +15,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -206,9 +207,8 @@ internal fun ModelRunResultPage(
                             )
                             currentBitmap?.let { bitmap ->
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        8.dp,
-                                    ),
+                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     if (isFavorite != null) {
                                         FilledTonalIconButton(
@@ -362,7 +362,14 @@ internal fun ModelRunResultPage(
 
                         Card(
                             onClick = onShowParameters,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = MaterialTheme.shapes.medium,
+                                ),
+                            shape = MaterialTheme.shapes.medium,
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             ),
