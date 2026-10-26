@@ -113,30 +113,45 @@ class RemoteHostServer(
         // Strip any query string; routes don't use one.
         val path = parts[1].substringBefore('?')
 
-        var contentLength = 0
+        // Reject ambiguous/framed requests instead of treating malformed
+        // Content-Length or a truncated JSON body as a harmless empty body.
+        // No chunked encoding is supported by this single-request server.
+        var contentLength: Int? = null
+        var headerBytes = 0
         while (true) {
             val line = readLine(input) ?: return null
+            headerBytes += line.length + 2
+            if (headerBytes > MAX_HEADER_BYTES) return null
             if (line.isEmpty()) break
-            val name = line.substringBefore(':').trim().lowercase()
-            val value = line.substringAfter(':').trim()
-            if (name == "content-length") {
-                contentLength = value.toIntOrNull() ?: 0
+            val separator = line.indexOf(':')
+            if (separator <= 0) return null
+            val name = line.substring(0, separator).trim().lowercase()
+            val value = line.substring(separator + 1).trim()
+            when (name) {
+                "content-length" -> {
+                    if (contentLength != null || value.isEmpty() || !value.all(Char::isDigit)) {
+                        return null
+                    }
+                    contentLength = value.toIntOrNull() ?: return null
+                    if (contentLength > MAX_BODY_BYTES) return null
+                }
+                "transfer-encoding" -> return null
             }
         }
-        if (contentLength > MAX_BODY_BYTES) return null
-
-        val body = if (contentLength > 0) {
-            val bytes = ByteArray(contentLength)
+        val length = contentLength ?: 0
+        if (method == "POST" && length == 0) return null
+        val body = if (length > 0) {
+            val bytes = ByteArray(length)
             var read = 0
-            while (read < contentLength) {
-                val n = input.read(bytes, read, contentLength - read)
-                if (n < 0) break
+            while (read < length) {
+                val n = input.read(bytes, read, length - read)
+                if (n <= 0) return null
                 read += n
             }
             try {
-                JSONObject(String(bytes, 0, read, StandardCharsets.UTF_8))
+                JSONObject(String(bytes, StandardCharsets.UTF_8))
             } catch (_: Exception) {
-                JSONObject()
+                return null
             }
         } else {
             JSONObject()
@@ -159,7 +174,7 @@ class RemoteHostServer(
     }
 
     private fun route(request: Request): Response {
-        if (request.path == RemoteProtocol.PATH_INFO) {
+        if (request.method == "GET" && request.path == RemoteProtocol.PATH_INFO) {
             return Response(200, handler.info())
         }
         return when {
@@ -212,6 +227,7 @@ class RemoteHostServer(
         private const val WORKER_COUNT = 1
         private const val SOCKET_TIMEOUT_MS = 10_000
         private const val MAX_BODY_BYTES = 64 * 1024
+        private const val MAX_HEADER_BYTES = 32 * 1024
         private const val MAX_LINE_LENGTH = 8 * 1024
     }
 }
