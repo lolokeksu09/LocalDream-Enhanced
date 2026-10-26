@@ -212,6 +212,7 @@ fun ModelRunScreen(
     }
     val coroutineScope = rememberCoroutineScope()
     val batchController = remember(coroutineScope) { ModelRunBatchController(coroutineScope) }
+    val imageJobController = remember { ModelRunImageJobController() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val modelRepository = remember { ModelRepository.getInstance(context) }
     val remoteRepository = remember { RemoteRepository.getInstance(context) }
@@ -759,7 +760,7 @@ fun ModelRunScreen(
     }
 
     fun sendBitmapToImg2img(bitmap: Bitmap) {
-        scope.launch {
+        imageJobController.launch(scope) { _ ->
             val ready = try {
                 base64EncodeDone = false
                 val aspectTarget = computeAspectTargetSize(model?.usesFixedCanvas == true, aspectRatio)
@@ -888,7 +889,7 @@ fun ModelRunScreen(
         val existing = editReferenceImages.map { it.uri }.toSet()
         val selected = uris.distinct().filterNot { it in existing }
         if (selected.isEmpty() || editReferencesLoading) return
-        scope.launch {
+        imageJobController.launch(scope) { token ->
             editReferencesLoading = true
             try {
                 val decoded = selected.map { uri ->
@@ -900,6 +901,8 @@ fun ModelRunScreen(
                     )
                 }
                 editReferenceImages.addAll(decoded)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Toast.makeText(
                     context,
@@ -907,7 +910,9 @@ fun ModelRunScreen(
                     Toast.LENGTH_SHORT,
                 ).show()
             } finally {
-                editReferencesLoading = false
+                if (imageJobController.isCurrent(token)) {
+                    editReferencesLoading = false
+                }
             }
         }
     }
@@ -1111,6 +1116,7 @@ fun ModelRunScreen(
             // Cancel the producer before stopping the service: no next
             // batch item may start while teardown is in progress.
             batchController.cancel()
+            imageJobController.cancel()
             currentBitmap = null
             generationParams = null
             BackgroundGenerationService.stop(context)
@@ -1153,6 +1159,7 @@ fun ModelRunScreen(
     // and the screen alive, so the user can immediately generate again.
     fun interruptGeneration() {
         batchController.cancel()
+        imageJobController.cancel()
         BackgroundGenerationService.stop(context)
         BackgroundGenerationService.resetState()
         displayState.onInterrupt()
