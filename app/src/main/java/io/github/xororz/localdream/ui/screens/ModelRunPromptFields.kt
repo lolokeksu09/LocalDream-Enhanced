@@ -61,8 +61,9 @@ internal fun ModelRunPromptFields(
                     "blurry, low quality, bad anatomy, extra fingers, watermark",
                 )
             },
-            label = { Text(stringResource(R.string.quick_preset_portrait)) },
-        )
+        ) {
+            Text(stringResource(R.string.quick_preset_portrait))
+        }
         OutlinedButton(
             onClick = {
                 onApplyTemplates(
@@ -70,8 +71,9 @@ internal fun ModelRunPromptFields(
                     "blurry, low quality, bad anatomy, extra fingers, watermark",
                 )
             },
-            label = { Text(stringResource(R.string.quick_preset_anime)) },
-        )
+        ) {
+            Text(stringResource(R.string.quick_preset_anime))
+        }
         OutlinedButton(
             onClick = {
                 onApplyTemplates(
@@ -79,8 +81,9 @@ internal fun ModelRunPromptFields(
                     "blurry, low quality, oversaturated, plastic skin, watermark",
                 )
             },
-            label = { Text(stringResource(R.string.quick_preset_realism)) },
-        )
+        ) {
+            Text(stringResource(R.string.quick_preset_realism))
+        }
     }
     ControlledPromptTagTextField(
         controller = negativePromptField,
