@@ -8,8 +8,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.BitmapRegionDecoder
-import android.graphics.ImageDecoder
 import android.graphics.Rect as AndroidRect
 import android.net.Uri
 import android.os.Build
@@ -175,7 +173,6 @@ import io.github.xororz.localdream.utils.saveImageFromFile
 import java.io.File
 import java.util.Locale
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -689,77 +686,22 @@ fun ModelRunScreen(
         scope.launch(Dispatchers.IO) {
             try {
                 base64EncodeDone = false
-                val aspectTarget =
-                    computeAspectTargetSize(model?.usesFixedCanvas == true, aspectRatio)
-                val targetW = aspectTarget?.first ?: currentWidth
-                val targetH = aspectTarget?.second ?: currentHeight
-
-                var clampedRect = rect
-                val freshCropped: Bitmap? = try {
-                    sourceUri?.let { uri ->
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            @Suppress("DEPRECATION")
-                            val decoder = BitmapRegionDecoder.newInstance(input, false)
-                                ?: throw IllegalStateException(
-                                    "BitmapRegionDecoder.newInstance returned null",
-                                )
-                            try {
-                                val safeLeft = rect.left.coerceAtLeast(0)
-                                val safeTop = rect.top.coerceAtLeast(0)
-                                val safeRight = rect.right.coerceAtMost(decoder.width)
-                                val safeBottom = rect.bottom.coerceAtMost(decoder.height)
-                                if (safeRight > safeLeft && safeBottom > safeTop) {
-                                    val region = snapInpaintCropRect(
-                                        rect = AndroidRect(safeLeft, safeTop, safeRight, safeBottom),
-                                        imageWidth = decoder.width,
-                                        imageHeight = decoder.height,
-                                        tolerance = (2f * context.resources.displayMetrics.density)
-                                            .roundToInt().coerceAtLeast(1),
-                                    )
-                                    clampedRect = region
-                                    decoder.decodeRegion(region, BitmapFactory.Options())
-                                } else {
-                                    null
-                                }
-                            } finally {
-                                decoder.recycle()
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(
-                        "ModelRunScreen",
-                        "BitmapRegionDecoder failed, fall back to cropify bitmap: ${e.message}",
-                    )
-                    null
-                }
-
-                val sourceBitmap = freshCropped ?: bitmap
-
-                val scaled = withContext(Dispatchers.Default) {
-                    if (sourceBitmap.width != targetW || sourceBitmap.height != targetH) {
-                        sourceBitmap.scale(targetW, targetH)
-                    } else {
-                        sourceBitmap
-                    }
-                }
-
-                val needsPad =
-                    scaled.width != currentWidth || scaled.height != currentHeight
-                val payload = if (needsPad) {
-                    bitmapToBase64Png(padBitmapToCanvas(scaled, currentWidth, currentHeight))
-                } else {
-                    bitmapToBase64Png(scaled)
-                }
-
+                val prepared = prepareModelRunCrop(
+                    context = context,
+                    originalUri = sourceUri,
+                    fallbackBitmap = bitmap,
+                    requestedRect = rect,
+                    usesFixedCanvas = model?.usesFixedCanvas == true,
+                    aspectRatio = aspectRatio,
+                    canvasWidth = currentWidth,
+                    canvasHeight = currentHeight,
+                )
                 withContext(Dispatchers.Main) {
-                    cropRect = clampedRect
-                    croppedBitmap = scaled
+                    cropRect = prepared.cropRect
+                    croppedBitmap = prepared.bitmap
                     drawingOverlayBitmap = null
                 }
-
-                val tmpFile = File(context.filesDir, "tmp.txt")
-                tmpFile.writeText(payload)
+                saveModelRunImagePayload(context.filesDir, "tmp.txt", prepared.payload)
                 base64EncodeDone = true
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -790,14 +732,13 @@ fun ModelRunScreen(
                 // into InpaintScreen). For SDXL aspect-pad mode we re-encode after
                 // padding to currentWidth x currentHeight so it lines up with the
                 // padded image upload.
-                val needsPad = maskBmp.width != currentWidth || maskBmp.height != currentHeight
-                val payload = if (needsPad) {
-                    bitmapToBase64Png(padBitmapToCanvas(maskBmp, currentWidth, currentHeight))
-                } else {
-                    maskBase64
-                }
-                val maskFile = File(context.filesDir, "mask.txt")
-                maskFile.writeText(payload)
+                val payload = prepareModelRunMaskPayload(
+                    maskBmp,
+                    maskBase64,
+                    currentWidth,
+                    currentHeight,
+                )
+                saveModelRunImagePayload(context.filesDir, "mask.txt", payload)
 
                 withContext(Dispatchers.Main) {
                     base64EncodeDone = true
@@ -824,48 +765,15 @@ fun ModelRunScreen(
                 val aspectTarget = computeAspectTargetSize(model?.usesFixedCanvas == true, aspectRatio)
                 val targetW = aspectTarget?.first ?: currentWidth
                 val targetH = aspectTarget?.second ?: currentHeight
-
-                // 1) Center-crop+scale the source to (targetW, targetH).
-                // 2) If aspect padding is in effect, pad up to (currentWidth, currentHeight).
-                val resized = withContext(Dispatchers.Default) {
-                    val srcRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
-                    val dstRatio = targetW.toFloat() / targetH.toFloat()
-                    val centerCropped = if (kotlin.math.abs(srcRatio - dstRatio) < 1e-3f) {
-                        bitmap
-                    } else {
-                        val (cropW, cropH) = if (srcRatio > dstRatio) {
-                            Pair((bitmap.height * dstRatio).toInt(), bitmap.height)
-                        } else {
-                            Pair(bitmap.width, (bitmap.width / dstRatio).toInt())
-                        }
-                        val cx = (bitmap.width - cropW) / 2
-                        val cy = (bitmap.height - cropH) / 2
-                        Bitmap.createBitmap(bitmap, cx, cy, cropW, cropH)
-                    }
-                    val scaled =
-                        if (centerCropped.width != targetW || centerCropped.height != targetH) {
-                            centerCropped.scale(targetW, targetH)
-                        } else {
-                            centerCropped.copy(Bitmap.Config.ARGB_8888, false)
-                        }
-                    scaled
-                }
-
-                val displayBitmap = resized
-                val uploadBitmap =
-                    if (resized.width != currentWidth || resized.height != currentHeight) {
-                        padBitmapToCanvas(resized, currentWidth, currentHeight)
-                    } else {
-                        resized
-                    }
-
-                val base64String = withContext(Dispatchers.IO) {
-                    bitmapToBase64Png(uploadBitmap)
-                }
-
-                withContext(Dispatchers.IO) {
-                    File(context.filesDir, "tmp.txt").writeText(base64String)
-                }
+                val prepared = prepareModelRunBitmapUpload(
+                    bitmap = bitmap,
+                    targetWidth = targetW,
+                    targetHeight = targetH,
+                    canvasWidth = currentWidth,
+                    canvasHeight = currentHeight,
+                )
+                saveModelRunImagePayload(context.filesDir, "tmp.txt", prepared.payload)
+                val displayBitmap = prepared.bitmap
 
                 croppedBitmap = displayBitmap
                 drawingOverlayBitmap = null
@@ -983,30 +891,13 @@ fun ModelRunScreen(
         scope.launch {
             editReferencesLoading = true
             try {
-                val decoded = withContext(Dispatchers.IO) {
-                    selected.map { uri ->
-                        val source = ImageDecoder.createSource(context.contentResolver, uri)
-                        val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-                            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                            val maxPixels = 1024L * 1024L
-                            val pixels = info.size.width.toLong() * info.size.height
-                            if (pixels > maxPixels) {
-                                val scale = sqrt(maxPixels.toDouble() / pixels)
-                                decoder.setTargetSize(
-                                    (info.size.width * scale).roundToInt().coerceAtLeast(1),
-                                    (info.size.height * scale).roundToInt().coerceAtLeast(1),
-                                )
-                            }
-                        }
-                        EditReferenceSelection(
-                            uri = uri,
-                            bitmap = bitmap,
-                            // Reference conditioning is VAE-encoded rather than
-                            // pasted back pixel-for-pixel, so high-quality JPEG
-                            // keeps the payloads small without visible cost.
-                            base64 = bitmapToBase64Jpeg(bitmap, 95),
-                        )
-                    }
+                val decoded = selected.map { uri ->
+                    val prepared = decodeModelRunEditImage(context, uri)
+                    EditReferenceSelection(
+                        uri = uri,
+                        bitmap = prepared.bitmap,
+                        base64 = prepared.payload,
+                    )
                 }
                 editReferenceImages.addAll(decoded)
             } catch (e: Exception) {
