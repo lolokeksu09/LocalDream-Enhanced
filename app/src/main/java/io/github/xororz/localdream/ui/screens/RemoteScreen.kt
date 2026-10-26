@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -99,6 +101,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
     // control server and backend stay at full performance) while every pixel
     // is off.
     var screenShield by remember { mutableStateOf(false) }
+    var showLanWarning by remember { mutableStateOf(false) }
 
     // Host mode is meant to keep serving while the user leaves the device on
     // this screen; prevent the system from dozing the CPU via screen off.
@@ -112,6 +115,27 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
 
     if (screenShield) {
         ScreenShieldOverlay(onExit = { screenShield = false })
+    }
+
+    if (showLanWarning) {
+        AlertDialog(
+            onDismissRequest = { showLanWarning = false },
+            title = { Text(stringResource(R.string.remote_lan_warning_title)) },
+            text = { Text(stringResource(R.string.remote_lan_warning_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLanWarning = false
+                    RemoteHostService.start(context)
+                }) {
+                    Text(stringResource(R.string.remote_lan_warning_continue))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLanWarning = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -220,7 +244,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             }
                         } else {
                             Button(
-                                onClick = { RemoteHostService.start(context) },
+                                onClick = { showLanWarning = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(stringResource(R.string.remote_host_start))
