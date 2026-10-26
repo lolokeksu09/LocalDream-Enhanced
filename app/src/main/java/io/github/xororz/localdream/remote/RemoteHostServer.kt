@@ -7,6 +7,7 @@ import java.io.InputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.json.JSONObject
@@ -19,14 +20,14 @@ import org.json.JSONObject
  * heavy (generation SSE, tokenize, upscale) is served by the native backend
  * on its own port, never through here.
  *
- * No authentication, matching the trust model of the existing "allow LAN
- * access" feature: the generation port itself is unauthenticated, so gating
- * only the control API would add friction without adding security. Host mode
- * is explicit and user-visible while active.
+ * Every endpoint except /info requires the current session's 128-bit key.
+ * The generation port is separately guarded by RemoteGenerationGateway.
+ * Transport is plaintext on LAN: use only trusted networks.
  */
 class RemoteHostServer(
     private val port: Int,
     private val handler: Handler,
+    private val sessionKey: String,
 ) {
     interface Handler {
         fun info(): JSONObject
@@ -103,6 +104,7 @@ class RemoteHostServer(
         val method: String,
         val path: String,
         val body: JSONObject,
+        val authorization: String?,
     )
 
     private fun parseRequest(input: InputStream): Request? {
@@ -117,6 +119,7 @@ class RemoteHostServer(
         // Content-Length or a truncated JSON body as a harmless empty body.
         // No chunked encoding is supported by this single-request server.
         var contentLength: Int? = null
+        var authorization: String? = null
         var headerBytes = 0
         while (true) {
             val line = readLine(input) ?: return null
@@ -136,6 +139,10 @@ class RemoteHostServer(
                     if (contentLength > MAX_BODY_BYTES) return null
                 }
                 "transfer-encoding" -> return null
+                RemoteProtocol.AUTH_HEADER.lowercase() -> {
+                    if (authorization != null) return null
+                    authorization = value
+                }
             }
         }
         val length = contentLength ?: 0
@@ -156,7 +163,7 @@ class RemoteHostServer(
         } else {
             JSONObject()
         }
-        return Request(method, path, body)
+        return Request(method, path, body, authorization)
     }
 
     // Reads one CRLF/LF-terminated header line as ISO-8859-1 (headers are
@@ -177,6 +184,12 @@ class RemoteHostServer(
         if (request.method == "GET" && request.path == RemoteProtocol.PATH_INFO) {
             return Response(200, handler.info())
         }
+        val key = request.authorization ?: return Response(401, errorBody("unauthorized"))
+        if (!MessageDigest.isEqual(
+                sessionKey.toByteArray(StandardCharsets.US_ASCII),
+                key.toByteArray(StandardCharsets.US_ASCII),
+            )
+        ) return Response(401, errorBody("unauthorized"))
         return when {
             request.method == "GET" && request.path == RemoteProtocol.PATH_MODELS ->
                 Response(200, handler.models())
