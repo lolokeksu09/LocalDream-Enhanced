@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.xororz.localdream.R
 import io.github.xororz.localdream.data.Model
 import io.github.xororz.localdream.ui.theme.Motion
@@ -90,11 +91,12 @@ fun ModelCard(
                     },
                 ),
         ) {
-            Badge(
+            Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp),
-                containerColor = if (model.runOnCpu) {
+                    .padding(12.dp),
+                shape = RoundedCornerShape(50),
+                color = if (model.runOnCpu) {
                     MaterialTheme.colorScheme.tertiaryContainer
                 } else {
                     MaterialTheme.colorScheme.primaryContainer
@@ -108,13 +110,15 @@ fun ModelCard(
                 Text(
                     text = if (model.runOnCpu) "CPU" else "NPU",
                     style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 )
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(18.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -131,7 +135,7 @@ fun ModelCard(
                     Text(
                         text = model.name,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Normal,
+                        fontWeight = FontWeight.Medium,
                         color = primaryContent,
                         modifier = Modifier.weight(1f, fill = false),
                     )
@@ -174,41 +178,59 @@ fun ModelCard(
 
                     when {
                         model.isDownloaded -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            val statusColor =
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                }
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = statusColor.copy(alpha = 0.12f),
+                                contentColor = statusColor,
                             ) {
-                                val statusColor =
-                                    if (isSelected) {
-                                        MaterialTheme.colorScheme.onSecondaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.primary
-                                    }
                                 Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = "downloaded",
-                                        tint = statusColor,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(17.dp),
                                     )
                                     Text(
                                         text = stringResource(R.string.downloaded),
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = statusColor,
+                                        fontWeight = FontWeight.SemiBold,
                                     )
                                 }
                             }
                         }
 
                         else -> {
-                            InfoChip(
-                                icon = Icons.Default.CloudDownload,
-                                label = stringResource(R.string.download),
-                                color = secondaryContent,
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = secondaryContent.copy(alpha = 0.10f),
+                                contentColor = secondaryContent,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CloudDownload,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(17.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.download),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
