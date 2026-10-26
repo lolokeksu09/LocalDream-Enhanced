@@ -457,35 +457,9 @@ fun ModelRunScreen(
     // without re-entering the screen.
     var embeddingNames by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    // Build embedding TagSuggestion rows for the current query. Returns at most
-    // `limit` entries: prefix matches first, then contains matches. Comparison
-    // normalizes spaces/dashes to underscores so users typing either form match.
-    fun embeddingSuggestionsFor(query: String, limit: Int = 5): List<TagSuggestion> {
-        if (embeddingNames.isEmpty()) return emptyList()
-        val q = query.trim()
-            .lowercase()
-            .replace(' ', '_')
-            .replace('-', '_')
-        if (q.isEmpty()) return emptyList()
-        val prefix = mutableListOf<TagSuggestion>()
-        val contains = mutableListOf<TagSuggestion>()
-        for (name in embeddingNames) {
-            val normalized = name.lowercase().replace(' ', '_').replace('-', '_')
-            val idx = normalized.indexOf(q)
-            if (idx < 0) continue
-            val suggestion = TagSuggestion(
-                replacementTag = name,
-                primaryText = name,
-                secondaryText = null,
-                matchType = TagMatchType.Embedding,
-                category = 0,
-                postCount = 0,
-                score = 0,
-            )
-            if (idx == 0) prefix += suggestion else contains += suggestion
-        }
-        return (prefix + contains).take(limit)
-    }
+    // Embedding matches are pure and independently tested.
+    fun embeddingSuggestionsFor(query: String): List<TagSuggestion> =
+        matchingEmbeddingSuggestions(embeddingNames, query)
 
     val promptField = rememberPromptFieldController(
         repository = tagAutocompleteRepository,
@@ -1572,18 +1546,13 @@ fun ModelRunScreen(
 
                     val wasUltrafix = pendingUltrafix
                     pendingUltrafix = false
-                    val currentGenerationMode = when {
-                        wasUltrafix -> GenerationMode.ULTRAFIX
-
-                        supportsReferenceEditing && (selectedImageUri != null || editReferenceImages.isNotEmpty()) ->
-                            GenerationMode.EDIT
-
-                        isInpaintMode -> GenerationMode.INPAINT
-
-                        selectedImageUri != null -> GenerationMode.IMG2IMG
-
-                        else -> GenerationMode.TXT2IMG
-                    }
+                    val currentGenerationMode = resolveGenerationMode(
+                        wasUltrafix = wasUltrafix,
+                        supportsReferenceEditing = supportsReferenceEditing,
+                        hasBaseImage = selectedImageUri != null,
+                        hasReferenceImages = editReferenceImages.isNotEmpty(),
+                        isInpaintMode = isInpaintMode,
+                    )
 
                     val newParams = GenerationParameters(
                         steps = generationParamsTmp.steps,
@@ -2125,16 +2094,13 @@ fun ModelRunScreen(
                                         }
                                     },
                                     onShare = {
-                                        val currentMode = when {
-                                            supportsReferenceEditing && (selectedImageUri != null || editReferenceImages.isNotEmpty()) ->
-                                                GenerationMode.EDIT
-
-                                            isInpaintMode -> GenerationMode.INPAINT
-
-                                            selectedImageUri != null -> GenerationMode.IMG2IMG
-
-                                            else -> GenerationMode.TXT2IMG
-                                        }
+                                        val currentMode = resolveGenerationMode(
+                                            wasUltrafix = false,
+                                            supportsReferenceEditing = supportsReferenceEditing,
+                                            hasBaseImage = selectedImageUri != null,
+                                            hasReferenceImages = editReferenceImages.isNotEmpty(),
+                                            isInpaintMode = isInpaintMode,
+                                        )
                                         shareSourceParams = GenerationParameters(
                                             steps = steps.toInt(),
                                             cfg = cfg,
@@ -2158,56 +2124,20 @@ fun ModelRunScreen(
                             }
                         }
 
-                        ControlledPromptTagTextField(
-                            controller = promptField,
+                        ModelRunPromptFields(
+                            promptField = promptField,
+                            negativePromptField = negativePromptField,
                             autocompleteAvailable = tagAutocompleteAvailable,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = {
-                                PromptCountLabel(
-                                    label = stringResource(R.string.image_prompt),
-                                    count = promptField.tokenCount,
-                                    max = promptField.tokenMax,
-                                    showCount = promptField.text.isNotEmpty(),
-                                )
+                            showTemplates = showPromptTemplates,
+                            onShowTemplates = { showPromptTemplates = true },
+                            onApplyTemplates = { prompt, negativePrompt ->
+                                promptField.replaceText(prompt)
+                                negativePromptField.replaceText(negativePrompt)
+                                saveAllFields()
+                                showPromptTemplates = false
                             },
+                            onDismissTemplates = { showPromptTemplates = false },
                         )
-
-                        ControlledPromptTagTextField(
-                            controller = negativePromptField,
-                            autocompleteAvailable = tagAutocompleteAvailable,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = {
-                                PromptCountLabel(
-                                    label = stringResource(R.string.negative_prompt),
-                                    count = negativePromptField.tokenCount,
-                                    max = negativePromptField.tokenMax,
-                                    showCount = negativePromptField.text.isNotEmpty(),
-                                )
-                            },
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
-                            TextButton(onClick = { showPromptTemplates = true }) {
-                                Text(stringResource(R.string.prompt_templates))
-                            }
-                        }
-
-                        if (showPromptTemplates) {
-                            PromptTemplatesDialog(
-                                currentPrompt = promptField.text,
-                                currentNegativePrompt = negativePromptField.text,
-                                onApply = { prompt, negativePrompt ->
-                                    promptField.replaceText(prompt)
-                                    negativePromptField.replaceText(negativePrompt)
-                                    saveAllFields()
-                                    showPromptTemplates = false
-                                },
-                                onDismiss = { showPromptTemplates = false },
-                            )
-                        }
 
                         Button(
                             onClick = {
@@ -4035,13 +3965,3 @@ fun ModelRunScreen(
     }
 }
 
-@Composable
-private fun PromptCountLabel(label: String, count: Int, max: Int, showCount: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label)
-        if (showCount) {
-            Spacer(Modifier.width(6.dp))
-            Text(if (max == 0) "$count/∞" else "$count/$max")
-        }
-    }
-}
