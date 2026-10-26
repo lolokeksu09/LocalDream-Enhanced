@@ -8,7 +8,6 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
@@ -101,16 +100,12 @@ class RemoteGenerationGateway(private val sessionKey: String) {
                         headers.add(line)
                     }
                 }
-                if (!MessageDigest.isEqual(
-                        sessionKey.toByteArray(StandardCharsets.US_ASCII),
-                        (key ?: "").toByteArray(StandardCharsets.US_ASCII),
-                    )
-                ) {
+                if (!RemotePairingKey.matches(sessionKey, key)) {
                     deny(downstream, 401)
                     return
                 }
 
-                Socket(InetAddress.getLoopbackAddress(), RemoteProtocol.GENERATION_PORT).use { upstream ->
+                Socket(InetAddress.getByName("127.0.0.1"), RemoteProtocol.GENERATION_PORT).use { upstream ->
                     downstream.soTimeout = STREAM_TIMEOUT_MS
                     upstream.soTimeout = STREAM_TIMEOUT_MS
                     val upstreamOutput = upstream.getOutputStream()
