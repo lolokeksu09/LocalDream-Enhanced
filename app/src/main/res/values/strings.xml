@@ -545,4 +545,7 @@
     <string name="search_models">Search models</string>
     <string name="clear_search">Clear search</string>
     <string name="no_models_match_search">No models match your search.</string>
+    <string name="quick_preset_portrait">Portrait</string>
+    <string name="quick_preset_anime">Anime</string>
+    <string name="quick_preset_realism">Realism</string>
 </resources>
