@@ -8,7 +8,7 @@ import okhttp3.OkHttpClient
 object Http {
     val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .addInterceptor { chain ->
+            .addNetworkInterceptor { chain ->
                 val request = chain.request()
                 val key = RemoteSession.keyForBackend(request.url.host, request.url.port)
                 chain.proceed(
