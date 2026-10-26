@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -88,12 +89,14 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
     val remoteRepository = remember { RemoteRepository.getInstance(context) }
 
     val hostRunning by RemoteHostService.isRunning.collectAsState()
+    val pairingKey by RemoteHostService.pairingCode.collectAsState()
     val servingModelId by BackendService.servingModelId.collectAsState()
 
     val msgConnectedTo = stringResource(R.string.remote_connected_to)
     val msgUnreachable = stringResource(R.string.remote_connect_failed_unreachable)
 
     var hostInput by remember { mutableStateOf("") }
+    var pairingInput by remember { mutableStateOf("") }
     var connecting by remember { mutableStateOf(false) }
     var connectError by remember { mutableStateOf<String?>(null) }
 
@@ -224,6 +227,23 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             }
                             HorizontalDivider()
                             Text(
+                                stringResource(R.string.remote_pairing_key_host),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            SelectionContainer {
+                                Text(
+                                    pairingKey,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Text(
+                                stringResource(R.string.remote_pairing_key_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            HorizontalDivider()
+                            Text(
                                 servingModelId?.let {
                                     stringResource(R.string.remote_host_serving, it)
                                 } ?: stringResource(R.string.remote_host_no_model),
@@ -323,6 +343,13 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
+                            OutlinedTextField(
+                                value = pairingInput,
+                                onValueChange = { pairingInput = it },
+                                label = { Text(stringResource(R.string.remote_pairing_key_input)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                             connectError?.let { error ->
                                 Text(
                                     error,
@@ -335,7 +362,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                     connectError = null
                                     connecting = true
                                     scope.launch {
-                                        val result = remoteRepository.connect(hostInput.trim())
+                                        val result = remoteRepository.connect(hostInput.trim(), pairingInput.trim())
                                         connecting = false
                                         when (result) {
                                             is RemoteConnectResult.Success -> {
@@ -352,7 +379,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                         }
                                     }
                                 },
-                                enabled = !connecting && hostInput.isNotBlank(),
+                                enabled = !connecting && hostInput.isNotBlank() && pairingInput.isNotBlank(),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 if (connecting) {
