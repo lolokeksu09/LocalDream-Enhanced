@@ -12,7 +12,7 @@ import java.util.Date
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.KeyManager
 import javax.net.ssl.SSLEngine
-import javax.net.ssl.SSLSocket
+import java.net.Socket
 import javax.net.ssl.X509ExtendedTrustManager
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLServerSocketFactory
@@ -116,7 +116,7 @@ internal object RemoteTls {
             override fun checkClientTrusted(
                 chain: Array<X509Certificate>,
                 authType: String,
-                socket: SSLSocket,
+                socket: Socket,
             ) = systemTrust.checkClientTrusted(chain, authType)
 
             override fun checkServerTrusted(
