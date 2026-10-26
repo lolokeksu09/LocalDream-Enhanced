@@ -63,7 +63,8 @@ internal fun ModelRunPromptFields(
             },
             label = { Text(stringResource(R.string.quick_preset_portrait)) },
         )
-        SuggestionChip(
+        FilterChip(
+            selected = false,
             onClick = {
                 onApplyTemplates(
                     "masterpiece, anime illustration, expressive eyes, detailed hair, vibrant colors, clean linework",
@@ -72,7 +73,8 @@ internal fun ModelRunPromptFields(
             },
             label = { Text(stringResource(R.string.quick_preset_anime)) },
         )
-        SuggestionChip(
+        FilterChip(
+            selected = false,
             onClick = {
                 onApplyTemplates(
                     "highly detailed realistic photograph, natural lighting, realistic skin texture, sharp focus",
