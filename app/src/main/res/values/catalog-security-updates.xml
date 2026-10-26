@@ -6,7 +6,7 @@
     <string name="catalog_filter_pinned">Pinned</string>
     <string name="prompt_template_search_hint">Search saved templates</string>
     <string name="prompt_template_no_matches">No templates match the search.</string>
-    <string name="remote_lan_warning_title">Unprotected LAN access</string>
-    <string name="remote_lan_warning_body">Host mode opens ports 8808 and 8081 to your local network without authentication. Other devices on this network could control models or send generation requests. Enable this only on a trusted private network and turn it off afterward.</string>
+    <string name="remote_lan_warning_title">LAN traffic is not encrypted</string>
+    <string name="remote_lan_warning_body">Host mode requires a 128-bit pairing key for control and generation. Connections still use unencrypted HTTP, so only enable host mode on a trusted private network.</string>
     <string name="remote_lan_warning_continue">Enable anyway</string>
 </resources>
