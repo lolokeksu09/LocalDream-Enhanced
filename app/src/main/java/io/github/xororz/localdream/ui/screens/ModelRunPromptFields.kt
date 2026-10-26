@@ -1,9 +1,11 @@
 package io.github.xororz.localdream.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -45,6 +47,40 @@ internal fun ModelRunPromptFields(
             )
         },
     )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SuggestionChip(
+            onClick = {
+                onApplyTemplates(
+                    "masterpiece, high quality portrait, detailed face, soft cinematic lighting, sharp focus",
+                    "blurry, low quality, bad anatomy, extra fingers, watermark",
+                )
+            },
+            label = { Text(stringResource(R.string.quick_preset_portrait)) },
+        )
+        SuggestionChip(
+            onClick = {
+                onApplyTemplates(
+                    "masterpiece, anime illustration, expressive eyes, detailed hair, vibrant colors, clean linework",
+                    "blurry, low quality, bad anatomy, extra fingers, watermark",
+                )
+            },
+            label = { Text(stringResource(R.string.quick_preset_anime)) },
+        )
+        SuggestionChip(
+            onClick = {
+                onApplyTemplates(
+                    "highly detailed realistic photograph, natural lighting, realistic skin texture, sharp focus",
+                    "blurry, low quality, oversaturated, plastic skin, watermark",
+                )
+            },
+            label = { Text(stringResource(R.string.quick_preset_realism)) },
+        )
+    }
     ControlledPromptTagTextField(
         controller = negativePromptField,
         autocompleteAvailable = autocompleteAvailable,
