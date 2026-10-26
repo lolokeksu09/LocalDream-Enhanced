@@ -105,4 +105,7 @@
         <item quantity="many">Выбрано %d моделей</item>
         <item quantity="other">Выбрано %d моделей</item>
     </plurals>
+    <string name="quick_preset_portrait">Портрет</string>
+    <string name="quick_preset_anime">Аниме</string>
+    <string name="quick_preset_realism">Реализм</string>
 </resources>
