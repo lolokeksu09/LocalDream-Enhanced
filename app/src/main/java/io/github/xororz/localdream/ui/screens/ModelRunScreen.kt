@@ -1905,32 +1905,34 @@ fun ModelRunScreen(
                                     "ModelRunScreen",
                                     "start generation",
                                 )
-                                // Keep request values consistent with the
-                                // metadata saved for each image in the batch.
-                                fun requestForBatch(index: Int, hasReferences: Boolean) =
-                                    ModelRunRequest(
-                                        prompt = promptField.text,
-                                        negativePrompt = negativePromptField.text,
-                                        steps = steps.roundToInt(),
-                                        cfg = cfg,
-                                        seed = seed,
-                                        width = currentWidth,
-                                        height = currentHeight,
-                                        effectiveWidth = effectiveWidth,
-                                        effectiveHeight = effectiveHeight,
-                                        denoiseStrength = denoiseStrength,
-                                        useOpenCL = useOpenCL,
-                                        scheduler = scheduler,
-                                        aspectRatio = aspectRatio,
-                                        runOnCpu = model?.runOnCpu ?: false,
-                                        backendHost = backendHost,
-                                        batchIndex = index,
-                                        hasReferenceImages = hasReferences,
-                                        hasImage = selectedImageUri != null && base64EncodeDone,
-                                        hasMask = isInpaintMode && maskBitmap != null,
-                                    )
+                                // Freeze request values before launching the batch so
+                                // later UI changes cannot alter an in-flight request.
+                                val requestInputs = ModelRunBatchRequestInputs(
+                                    prompt = promptField.text,
+                                    negativePrompt = negativePromptField.text,
+                                    steps = steps.roundToInt(),
+                                    cfg = cfg,
+                                    seed = seed,
+                                    width = currentWidth,
+                                    height = currentHeight,
+                                    effectiveWidth = effectiveWidth,
+                                    effectiveHeight = effectiveHeight,
+                                    denoiseStrength = denoiseStrength,
+                                    useOpenCL = useOpenCL,
+                                    scheduler = scheduler,
+                                    aspectRatio = aspectRatio,
+                                    runOnCpu = model?.runOnCpu ?: false,
+                                    backendHost = backendHost,
+                                    hasImage = selectedImageUri != null && base64EncodeDone,
+                                    hasMask = isInpaintMode && maskBitmap != null,
+                                )
 
-                                generationParamsTmp = requestForBatch(0, false).historyParameters()
+                                generationParamsTmp =
+                                    buildModelRunBatchRequest(
+                                        inputs = requestInputs,
+                                        index = 0,
+                                        hasReferences = false,
+                                    ).historyParameters()
 
                                 Log.d(
                                     "ModelRunScreen",
@@ -1953,7 +1955,8 @@ fun ModelRunScreen(
                                     },
                                     submit = { i ->
                                         Log.d("ModelRunScreen", "preparing batch $i")
-                                        val request = requestForBatch(
+                                        val request = buildModelRunBatchRequest(
+                                            inputs = requestInputs,
                                             index = i,
                                             hasReferences = editReferencePayloads.isNotEmpty(),
                                         )
