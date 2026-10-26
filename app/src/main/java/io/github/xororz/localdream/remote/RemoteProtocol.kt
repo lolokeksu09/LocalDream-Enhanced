@@ -18,7 +18,7 @@ object RemoteProtocol {
     const val GENERATION_PORT = 8081
     const val GATEWAY_PORT = 8082
     const val AUTH_HEADER = "X-LocalDream-Key"
-    const val PROTOCOL_VERSION = 1
+    const val PROTOCOL_VERSION = 2
     const val APP_ID = "localdream"
 
     const val PATH_INFO = "/info"
