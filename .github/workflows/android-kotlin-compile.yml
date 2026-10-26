@@ -182,6 +182,7 @@ jobs:
             --tests "io.github.xororz.localdream.ui.screens.ModelRunImagePreparationTest" \
             --tests "io.github.xororz.localdream.ui.screens.ModelRunImageJobControllerTest" \
             --tests "io.github.xororz.localdream.ui.screens.ModelRunBackendReadinessGuardTest" \
+            --tests "io.github.xororz.localdream.ui.screens.ModelRunCompletionTest" \
             --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
             --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest" \
             --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest" \
