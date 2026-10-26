@@ -29,6 +29,8 @@ class RemoteApiClient(
 
     private val client: OkHttpClient by lazy {
         Http.client.newBuilder()
+            .followRedirects(false)
+            .followSslRedirects(false)
             .connectTimeout(CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
             .writeTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
