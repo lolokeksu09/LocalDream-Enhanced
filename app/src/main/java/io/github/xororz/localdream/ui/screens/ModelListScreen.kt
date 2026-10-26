@@ -274,6 +274,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedModels by remember { mutableStateOf(setOf<Model>()) }
+    var searchQuery by remember { mutableStateOf("") }
 
     // Ordered pinned ids; drives the pinned-first sort within each tab. Loaded
     // once and kept in sync as the user pins/unpins/renames.
@@ -388,11 +389,33 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
     }
 
     val listedModels = if (remoteActive) remoteRepository.models else modelRepository.models
-    val cpuModels = remember(listedModels, pinnedIds) {
-        PinnedModels.sort(listedModels.filter { it.runOnCpu }, pinnedIds)
+    val cpuModels = remember(listedModels, pinnedIds, searchQuery) {
+        PinnedModels.sort(
+            listedModels.filter { model ->
+                model.runOnCpu && matchesModelSearch(
+                    query = searchQuery,
+                    name = model.name,
+                    description = model.description,
+                    id = model.id,
+                    baseUrl = model.baseUrl,
+                )
+            },
+            pinnedIds,
+        )
     }
-    val npuModels = remember(listedModels, pinnedIds) {
-        PinnedModels.sort(listedModels.filter { !it.runOnCpu }, pinnedIds)
+    val npuModels = remember(listedModels, pinnedIds, searchQuery) {
+        PinnedModels.sort(
+            listedModels.filter { model ->
+                !model.runOnCpu && matchesModelSearch(
+                    query = searchQuery,
+                    name = model.name,
+                    description = model.description,
+                    id = model.id,
+                    baseUrl = model.baseUrl,
+                )
+            },
+            pinnedIds,
+        )
     }
 
     val lastViewedPage = remember {
@@ -1032,6 +1055,31 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
             }
 
+            if (!isSelectionMode) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    placeholder = { Text(stringResource(R.string.search_models)) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = null)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.clear_search),
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                )
+            }
+
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.weight(1f),
@@ -1131,7 +1179,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                         )
                     }
 
-                    if (models.isEmpty() && modelRepository.isLoaded) {
+                    if (models.isEmpty() && (searchQuery.isNotBlank() || modelRepository.isLoaded)) {
                         item {
                             var visible by remember { mutableStateOf(false) }
                             LaunchedEffect(Unit) { visible = true }
@@ -1153,7 +1201,9 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = if (page == 0) {
+                                        text = if (searchQuery.isNotBlank()) {
+                                            stringResource(R.string.no_models_match_search)
+                                        } else if (page == 0) {
                                             stringResource(R.string.no_cpu_models)
                                         } else {
                                             stringResource(R.string.no_npu_models)

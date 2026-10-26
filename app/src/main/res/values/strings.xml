@@ -540,4 +540,9 @@
     <string name="model_storage_name_clash">The Download folder does not tell upper and lower case apart, so these would overwrite another model or embedding: %1$s. Rename or delete them first.</string>
     <string name="model_storage_conflict">%1$s already contains %2$s. Delete one of the copies, then try again.</string>
     <string name="model_storage_moving_blocked">Models are being moved. Try again once the move has finished.</string>
+
+    <!-- Model catalogue search -->
+    <string name="search_models">Search models</string>
+    <string name="clear_search">Clear search</string>
+    <string name="no_models_match_search">No models match your search.</string>
 </resources>

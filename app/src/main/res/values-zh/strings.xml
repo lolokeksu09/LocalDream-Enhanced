@@ -521,4 +521,9 @@
     <string name="model_storage_name_clash">Download 文件夹不区分大小写，以下名称会覆盖其他模型或嵌入：%1$s。请先重命名或删除它们。</string>
     <string name="model_storage_conflict">%1$s 中已存在 %2$s。请删除其中一份后重试。</string>
     <string name="model_storage_moving_blocked">正在移动模型，请在移动完成后重试。</string>
+
+    <!-- Model catalogue search -->
+    <string name="search_models">搜索模型</string>
+    <string name="clear_search">清除搜索</string>
+    <string name="no_models_match_search">没有匹配的模型。</string>
 </resources>

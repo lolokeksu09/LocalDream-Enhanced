@@ -128,7 +128,8 @@ jobs:
       - name: Run focused model-install regression tests
         run: |
           ./gradlew --no-daemon :app:testBasicDebugUnitTest \
-            --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest"
+            --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
+            --tests "io.github.xororz.localdream.data.ModelSearchTest"
 
       - name: Build preview APK
         shell: bash
