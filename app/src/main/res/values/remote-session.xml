@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="remote_pairing_key_host">Pairing key (keep private)</string>
+    <string name="remote_pairing_key_hint">On the controller, enter this key along with the host address. The key changes whenever host mode restarts. LAN traffic is not encrypted.</string>
+    <string name="remote_pairing_key_input">Pairing key from host</string>
+</resources>
