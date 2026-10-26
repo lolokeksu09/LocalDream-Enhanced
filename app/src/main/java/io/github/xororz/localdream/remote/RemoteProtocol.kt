@@ -7,7 +7,7 @@ import org.json.JSONObject
  * Wire protocol between a controller device (B) and a host device (A).
  *
  * The host exposes two ports:
- *  - CONTROL_PORT: a small authenticated JSON API served by [RemoteHostServer]
+ *  - CONTROL_PORT: an unauthenticated JSON API served by [RemoteHostServer]
  *    (model catalog, model activation, backend status).
  *  - GENERATION_PORT: the native backend itself, started with --listen_all
  *    while host mode is active. The controller talks to /generate, /tokenize
@@ -37,7 +37,7 @@ object RemoteProtocol {
     const val STATE_ERROR = "error"
 }
 
-/** Identity block returned by GET /info (the only unauthenticated endpoint). */
+/** Identity block returned by GET /info (the entire current LAN API is unauthenticated). */
 data class RemoteHostInfo(
     val protocol: Int,
     val version: String,
