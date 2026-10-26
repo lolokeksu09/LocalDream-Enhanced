@@ -36,6 +36,7 @@ class ModelArchiveInstallerTest {
         val backupDir = File(tmp.root, "backup")
         File(stagingDir, "weights.bin").writeText("new-model")
         File(modelDir, "weights.bin").writeText("old-model")
+        File(modelDir, "old-only.bin").writeText("obsolete")
 
         val backupRemoved = ModelArchiveInstaller.install(stagingDir, modelDir, backupDir)
 
