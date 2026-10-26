@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -153,10 +152,9 @@ internal fun PromptTemplatesDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     OutlinedTextField(
                         value = templateName,
@@ -164,7 +162,7 @@ internal fun PromptTemplatesDialog(
                             templateName = it
                             nameError = false
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.prompt_template_name)) },
                         singleLine = true,
                         isError = nameError,
@@ -185,6 +183,7 @@ internal fun PromptTemplatesDialog(
                                 nameError = false
                             }
                         },
+                        modifier = Modifier.fillMaxWidth(),
                         enabled = currentPrompt.isNotBlank() || currentNegativePrompt.isNotBlank(),
                     ) {
                         Text(stringResource(R.string.save))
