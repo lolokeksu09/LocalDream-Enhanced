@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +28,11 @@ internal fun ModelRunPromptFields(
     onApplyTemplates: (String, String) -> Unit,
     onDismissTemplates: () -> Unit,
 ) {
+    Text(
+        text = stringResource(R.string.prompt_settings),
+        style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+    )
     ControlledPromptTagTextField(
         controller = promptField,
         autocompleteAvailable = autocompleteAvailable,
@@ -51,8 +59,17 @@ internal fun ModelRunPromptFields(
             )
         },
     )
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = onShowTemplates) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        androidx.compose.material3.FilledTonalButton(onClick = onShowTemplates) {
+            Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.width(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.prompt_templates))
         }
     }
