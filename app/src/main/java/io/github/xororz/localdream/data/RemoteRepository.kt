@@ -10,6 +10,7 @@ import io.github.xororz.localdream.R
 import io.github.xororz.localdream.remote.RemoteApiClient
 import io.github.xororz.localdream.remote.RemoteCatalog
 import io.github.xororz.localdream.remote.RemoteProtocol
+import io.github.xororz.localdream.remote.RemoteSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +21,7 @@ data class RemoteConnection(
     val host: String,
     val port: Int,
     val deviceName: String,
+    val sessionKey: String,
 )
 
 sealed class RemoteConnectResult {
@@ -70,7 +72,7 @@ class RemoteRepository private constructor(private val context: Context) {
     val isActive: Boolean get() = connection != null
 
     fun client(): RemoteApiClient? = connection?.let {
-        RemoteApiClient(it.host, it.port)
+        RemoteApiClient(it.host, it.port, it.sessionKey)
     }
 
     fun resolutionsFor(modelId: String): List<Resolution> = resolutionsById[modelId].orEmpty()
@@ -101,33 +103,42 @@ class RemoteRepository private constructor(private val context: Context) {
         if (connection != null) return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val host = prefs.getString(KEY_HOST, null) ?: return
+        val key = prefs.getString(KEY_CODE, null) ?: return
+        if (!key.matches(Regex("[0-9A-F]{32}"))) return
         connection = RemoteConnection(
             host = host,
             port = prefs.getInt(KEY_PORT, RemoteProtocol.CONTROL_PORT),
             deviceName = prefs.getString(KEY_NAME, host) ?: host,
+            sessionKey = key,
         )
+        RemoteSession.activate(host, key)
     }
 
     /**
      * Verifies the host at [hostInput] ("ip" or "ip:port"), fetches its
      * catalog and persists the link on success.
      */
-    suspend fun connect(hostInput: String): RemoteConnectResult {
+    suspend fun connect(hostInput: String, pairingCode: String): RemoteConnectResult {
         val host = hostInput.substringBefore(':').trim()
         val port = hostInput.substringAfter(':', "").toIntOrNull()
             ?: RemoteProtocol.CONTROL_PORT
-        if (host.isEmpty()) return RemoteConnectResult.Unreachable
+        val key = pairingCode.trim().uppercase(java.util.Locale.ROOT)
+        if (host.isEmpty() || port !in 1..65535 || !key.matches(Regex("[0-9A-F]{32}"))) {
+            return RemoteConnectResult.Unreachable
+        }
 
-        val client = RemoteApiClient(host, port)
+        val client = RemoteApiClient(host, port, key)
         val info = client.fetchInfo() ?: return RemoteConnectResult.Unreachable
         val catalog = client.fetchCatalog() ?: return RemoteConnectResult.Unreachable
 
         val name = info.deviceName.ifEmpty { host }
-        connection = RemoteConnection(host, port, name)
+        connection = RemoteConnection(host, port, name, key)
+        RemoteSession.activate(host, key)
         applyCatalog(catalog)
         online = true
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             putString(KEY_HOST, host)
+            putString(KEY_CODE, key)
             putInt(KEY_PORT, port)
             putString(KEY_NAME, name)
         }
@@ -154,6 +165,7 @@ class RemoteRepository private constructor(private val context: Context) {
 
     /** Drops the saved link and returns the list screens to local mode. */
     fun disconnect() {
+        RemoteSession.clear()
         connection = null
         models = emptyList()
         resolutionsById = emptyMap()
