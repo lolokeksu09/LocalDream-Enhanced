@@ -43,7 +43,7 @@ class ModelDownloadService : Service() {
         getSystemService(NOTIFICATION_SERVICE) as NotificationManager
     }
 
-    private val client = Http.client.newBuilder()
+    private val client = Http.downloadClient.newBuilder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
