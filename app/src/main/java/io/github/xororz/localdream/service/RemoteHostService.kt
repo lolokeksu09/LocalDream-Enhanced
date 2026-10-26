@@ -25,12 +25,12 @@ import io.github.xororz.localdream.remote.RemoteHostStatus
 import io.github.xororz.localdream.remote.RemoteModelDefaults
 import io.github.xororz.localdream.remote.RemoteModelInfo
 import io.github.xororz.localdream.remote.RemoteProtocol
+import io.github.xororz.localdream.remote.RemotePairingKey
 import io.github.xororz.localdream.remote.RemoteUpscalerInfo
 import java.io.File
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.NetworkInterface
-import java.security.SecureRandom
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -73,8 +73,7 @@ class RemoteHostService : Service() {
         if (server == null) {
             // New 128-bit key on every host-mode start: old controllers must
             // explicitly pair again when the host session is restarted.
-            val keyBytes = ByteArray(16).also { SecureRandom().nextBytes(it) }
-            val key = keyBytes.joinToString("") { "%02X".format(it) }
+            val key = RemotePairingKey.generate()
             val newServer = RemoteHostServer(
                 port = RemoteProtocol.CONTROL_PORT,
                 handler = ApiHandler(),
