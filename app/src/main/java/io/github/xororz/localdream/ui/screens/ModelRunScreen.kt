@@ -518,15 +518,14 @@ fun ModelRunScreen(
     var snapshotHasOriginalImage by remember { mutableStateOf(false) }
     // History-item ids whose bitmaps may be stitched back into the inpaint source:
     // the just-completed inpaint generation plus any upscaled copies derived from
-    // it. Compared against currentDisplayedHistoryId so saving only stitches when
+    // it. Compared against the displayed history ID so saving only stitches when
     // the bitmap on screen really is one of those (regardless of whether it's the
     // original Bitmap object or a fresh decode from clicking the thumbnail again).
-    var stitchableHistoryIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var currentDisplayedHistoryId by remember { mutableStateOf<Long?>(null) }
+    val historySelection = remember { ModelRunHistorySelection() }
     // Favorite flag of the image currently on the result page, looked up by id
     // so it stays correct even when the row isn't in a loaded history page.
-    val displayedFavorite by remember(currentDisplayedHistoryId) {
-        currentDisplayedHistoryId
+    val displayedFavorite by remember(historySelection.displayedHistoryId) {
+        historySelection.displayedHistoryId
             ?.let { historyManager.observeFavorite(it) }
             ?: flowOf(null)
     }.collectAsState(initial = null)
@@ -1131,8 +1130,7 @@ fun ModelRunScreen(
             mode = GenerationMode.UNKNOWN,
         )
         generationParamsModelId = modelId
-        currentDisplayedHistoryId = null
-        stitchableHistoryIds = emptySet()
+        historySelection.onImportedImage()
         imageVersion++
     }
 
@@ -1207,8 +1205,7 @@ fun ModelRunScreen(
             snapshotCropRect != null &&
             snapshotSelectedImageUri != null &&
             snapshotHasOriginalImage &&
-            currentDisplayedHistoryId != null &&
-            currentDisplayedHistoryId in stitchableHistoryIds
+            historySelection.isDisplayedStitchable
 
         coroutineScope.launch {
             if (shouldStitch) {
@@ -1483,12 +1480,9 @@ fun ModelRunScreen(
     LaunchedEffect(recentHistory) {
         if (currentBitmap != null) return@LaunchedEffect
         val item = recentHistory.firstOrNull() ?: return@LaunchedEffect
-        val bitmap = withContext(Dispatchers.IO) {
-            BitmapFactory.decodeFile(item.imageFile.absolutePath)
-        }
+        val bitmap = decodeModelRunHistoryBitmap(item)
         if (bitmap != null && currentBitmap == null) {
-            displayState.presentResult(bitmap, item.params, item.modelId)
-            currentDisplayedHistoryId = item.id
+            historySelection.displayHistoryResult(item, bitmap, displayState)
         }
     }
 
@@ -1556,10 +1550,7 @@ fun ModelRunScreen(
                             withContext(Dispatchers.Main) {
                                 // An ultrafix result is a standalone image, not a
                                 // stitchable inpaint patch.
-                                if (!wasUltrafix) {
-                                    stitchableHistoryIds = setOf(savedItem.id)
-                                }
-                                currentDisplayedHistoryId = savedItem.id
+                                historySelection.onGenerationSaved(savedItem.id, wasUltrafix)
                             }
                         }
                     }
@@ -1574,10 +1565,9 @@ fun ModelRunScreen(
                         snapshotDrawingOverlayBitmap = drawingOverlayBitmap
                         snapshotHasOriginalImage = hasOriginalImageForStitch
                     }
-                    // stitchableHistoryIds / currentDisplayedHistoryId are set once
+                    // Stitch eligibility / displayed ID are updated once
                     // the DB save above resolves.
-                    stitchableHistoryIds = emptySet()
-                    currentDisplayedHistoryId = null
+                    historySelection.beginGeneratedResult()
 
                     Log.d(
                         "ModelRunScreen",
@@ -2790,17 +2780,12 @@ fun ModelRunScreen(
                                 }
                             },
                             onUltrafixLongClick = { showUltrafixImportDialog = true },
-                            isFavorite = if (currentDisplayedHistoryId != null) {
-                                displayedFavorite
-                            } else {
-                                null
-                            },
+                            isFavorite = displayedFavorite,
                             onFavoriteClick = {
-                                val id = currentDisplayedHistoryId
-                                val current = displayedFavorite
-                                if (id != null && current != null) {
+                                val change = historySelection.requestedFavoriteChange(displayedFavorite)
+                                if (change != null) {
                                     scope.launch(Dispatchers.IO) {
-                                        historyManager.setFavorite(id, !current)
+                                        historyManager.setFavorite(change.first, change.second)
                                     }
                                 }
                             },
@@ -2831,15 +2816,9 @@ fun ModelRunScreen(
                             onShowParameters = { showParametersDialog = true },
                             onHistoryThumbClick = { item ->
                                 scope.launch {
-                                    val bitmap = withContext(Dispatchers.IO) {
-                                        BitmapFactory.decodeFile(item.imageFile.absolutePath)
-                                    }
+                                    val bitmap = decodeModelRunHistoryBitmap(item)
                                     if (bitmap != null) {
-                                        currentBitmap = bitmap
-                                        generationParams = item.params
-                                        generationParamsModelId = item.modelId
-                                        currentDisplayedHistoryId = item.id
-                                        imageVersion++
+                                        historySelection.displayHistoryResult(item, bitmap, displayState)
                                     }
                                 }
                             },
@@ -3253,9 +3232,7 @@ fun ModelRunScreen(
                 currentBitmap?.let { bitmap ->
                     // If the source image is stitch-eligible (an inpaint result or
                     // an upscaled copy of one), its upscaled copy is too.
-                    val sourceIsStitchable =
-                        currentDisplayedHistoryId != null &&
-                            currentDisplayedHistoryId in stitchableHistoryIds
+                    val sourceIsStitchable = historySelection.isDisplayedStitchable
                     isUpscaling = true
                     scope.launch {
                         try {
@@ -3294,15 +3271,8 @@ fun ModelRunScreen(
                                         )
                                         if (saved != null) {
                                             withContext(Dispatchers.Main) {
-                                                currentBitmap = upscaledBitmap
-                                                generationParams = updatedParams
-                                                generationParamsModelId = modelId
-                                                currentDisplayedHistoryId = saved.id
-                                                if (sourceIsStitchable) {
-                                                    stitchableHistoryIds =
-                                                        stitchableHistoryIds + saved.id
-                                                }
-                                                imageVersion++
+                                                displayState.presentResult(upscaledBitmap, updatedParams, modelId)
+                                                historySelection.onUpscaleSaved(saved.id, sourceIsStitchable)
                                             }
                                         }
                                     } catch (e: Exception) {
@@ -3374,9 +3344,7 @@ fun ModelRunScreen(
     if (showHistoryDetailDialog && selectedHistoryItem != null) {
         val detailImagePath = selectedHistoryItem?.imageFile?.absolutePath
         val historyBitmap by produceState<Bitmap?>(null, detailImagePath) {
-            value = withContext(Dispatchers.IO) {
-                detailImagePath?.let { BitmapFactory.decodeFile(it) }
-            }
+            value = selectedHistoryItem?.let { decodeModelRunHistoryBitmap(it) }
         }
         val dismissDetail = {
             showHistoryDetailDialog = false
@@ -3399,11 +3367,7 @@ fun ModelRunScreen(
         val loadDetailIntoResult = fun(): Boolean {
             val bmp = historyBitmap ?: return false
             val item = detailItem ?: return false
-            currentBitmap = bmp
-            generationParams = item.params
-            generationParamsModelId = item.modelId
-            currentDisplayedHistoryId = item.id
-            imageVersion++
+            historySelection.displayHistoryResult(item, bmp, displayState)
             dismissDetail()
             return true
         }
