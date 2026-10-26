@@ -8,6 +8,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
@@ -23,6 +24,7 @@ import kotlin.concurrent.thread
 class RemoteGenerationGateway(private val sessionKey: String) {
     @Volatile private var listener: ServerSocket? = null
     private val slots = Semaphore(MAX_CONNECTIONS)
+    private val active = ConcurrentHashMap.newKeySet<Socket>()
     private val workers = Executors.newFixedThreadPool(MAX_CONNECTIONS)
 
     @Throws(IOException::class)
@@ -43,12 +45,18 @@ class RemoteGenerationGateway(private val sessionKey: String) {
                     runCatching { client.close() }
                     continue
                 }
+                active.add(client)
                 try {
                     workers.execute {
                         try { serve(client) }
-                        finally { slots.release() }
+                        finally {
+                            active.remove(client)
+                            runCatching { client.close() }
+                            slots.release()
+                        }
                     }
                 } catch (_: RuntimeException) {
+                    active.remove(client)
                     slots.release()
                     runCatching { client.close() }
                 }
@@ -59,6 +67,8 @@ class RemoteGenerationGateway(private val sessionKey: String) {
     fun shutdown() {
         runCatching { listener?.close() }
         listener = null
+        active.forEach { runCatching { it.close() } }
+        active.clear()
         workers.shutdownNow()
     }
 
