@@ -275,6 +275,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedModels by remember { mutableStateOf(setOf<Model>()) }
     var searchQuery by remember { mutableStateOf("") }
+    var catalogFilter by remember { mutableStateOf(ModelCatalogFilter.ALL) }
 
     // Ordered pinned ids; drives the pinned-first sort within each tab. Loaded
     // once and kept in sync as the user pins/unpins/renames.
@@ -389,10 +390,12 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
     }
 
     val listedModels = if (remoteActive) remoteRepository.models else modelRepository.models
-    val cpuModels = remember(listedModels, pinnedIds, searchQuery) {
+    val cpuModels = remember(listedModels, pinnedIds, searchQuery, catalogFilter) {
         PinnedModels.sort(
             listedModels.filter { model ->
-                model.runOnCpu && matchesModelSearch(
+                model.runOnCpu && matchesModelCatalogFilter(
+                    catalogFilter, model.isDownloaded, model.id in pinnedIds,
+                ) && matchesModelSearch(
                     query = searchQuery,
                     name = model.name,
                     description = model.description,
@@ -403,10 +406,12 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
             pinnedIds,
         )
     }
-    val npuModels = remember(listedModels, pinnedIds, searchQuery) {
+    val npuModels = remember(listedModels, pinnedIds, searchQuery, catalogFilter) {
         PinnedModels.sort(
             listedModels.filter { model ->
-                !model.runOnCpu && matchesModelSearch(
+                !model.runOnCpu && matchesModelCatalogFilter(
+                    catalogFilter, model.isDownloaded, model.id in pinnedIds,
+                ) && matchesModelSearch(
                     query = searchQuery,
                     name = model.name,
                     description = model.description,
@@ -1078,6 +1083,10 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                     },
                     singleLine = true,
                 )
+                ModelCatalogFilterRow(
+                    selected = catalogFilter,
+                    onSelected = { catalogFilter = it },
+                )
             }
 
             HorizontalPager(
@@ -1179,7 +1188,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                         )
                     }
 
-                    if (models.isEmpty() && (searchQuery.isNotBlank() || modelRepository.isLoaded)) {
+                    if (models.isEmpty() && (searchQuery.isNotBlank() || catalogFilter != ModelCatalogFilter.ALL || modelRepository.isLoaded)) {
                         item {
                             var visible by remember { mutableStateOf(false) }
                             LaunchedEffect(Unit) { visible = true }
@@ -1201,7 +1210,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = if (searchQuery.isNotBlank()) {
+                                        text = if (searchQuery.isNotBlank() || catalogFilter != ModelCatalogFilter.ALL) {
                                             stringResource(R.string.no_models_match_search)
                                         } else if (page == 0) {
                                             stringResource(R.string.no_cpu_models)
