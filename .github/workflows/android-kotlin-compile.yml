@@ -35,15 +35,19 @@ jobs:
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          if [[ -z "$SDKMANAGER" ]]; then
-            echo "sdkmanager not found under $SDK_ROOT/cmdline-tools" >&2
-            exit 1
+          if [[ ! -f "$SDK_ROOT/platforms/android-37.0/android.jar" || ! -x "$SDK_ROOT/build-tools/37.0.0/apksigner" ]]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+            if [[ -z "$SDKMANAGER" ]]; then
+              echo "sdkmanager not found under $SDK_ROOT/cmdline-tools" >&2
+              exit 1
+            fi
+            set +o pipefail
+            yes | "$SDKMANAGER" --licenses >/dev/null
+            set -o pipefail
+            "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;37.0.0"
+          else
+            echo "Android 37.0 platform and build tools are already installed."
           fi
-          set +o pipefail
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          set -o pipefail
-          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -123,15 +127,7 @@ jobs:
           find app/src/main/assets/qnnlibs -type f -name '*.so' -print -quit | grep -q .
           echo "Native runtime staged from the exact upstream base release."
 
-      - name: Run focused model-install regression tests
-        run: |
-          ./gradlew --no-daemon :app:testBasicDebugUnitTest \
-            --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
-            --tests "io.github.xororz.localdream.data.ModelSearchTest" \
-            --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest" \
-            --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest"
-
-      - name: Build preview APK
+      - name: Test, build and verify preview APK
         shell: bash
         env:
           PREVIEW_KEYSTORE_BASE64: ${{ secrets.LOCALDREAM_PREVIEW_KEYSTORE_BASE64 }}
@@ -162,12 +158,20 @@ jobs:
             echo "Missing or incomplete signing secrets. Configure LOCALDREAM_PREVIEW_KEYSTORE_BASE64 and LOCALDREAM_PREVIEW_KEYSTORE_PASSWORD in repository Actions secrets." >&2
             exit 1
           fi
-          ./gradlew --no-daemon :app:assembleBasicDebug \
+          # A single Gradle invocation shares dependency resolution and task
+          # configuration between focused tests and the signed APK build.
+          ./gradlew --no-daemon \
             -PPREVIEW_BUILD=true \
             -PRELEASE_STORE_FILE="$KEYSTORE" \
             -PRELEASE_STORE_PASSWORD="$STORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS=localdream-preview \
-            -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD"
+            -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
+            :app:testBasicDebugUnitTest \
+            --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
+            --tests "io.github.xororz.localdream.data.ModelSearchTest" \
+            --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest" \
+            --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
+            :app:assembleBasicDebug
           APK_PATH="$(find app/build/outputs/apk/basic/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
           if [[ -z "$APK_PATH" ]]; then
             echo "Gradle completed without producing the expected APK." >&2
