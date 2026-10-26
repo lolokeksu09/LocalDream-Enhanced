@@ -230,9 +230,10 @@ class BackendService : Service() {
         // persisted flag: a crash can never leave a stale "expose the port"
         // bit behind, and a config-equality check below forces a restart when
         // the bind address requirement changes.
-        val listenOnAll = getSharedPreferences("app_prefs", MODE_PRIVATE)
-            .getBoolean("listen_on_all_addresses", false) ||
-            RemoteHostService.isRunning.value
+        // Never expose the unauthenticated native inference API to the LAN.
+        // Remote sessions use the authenticated gateway on port 8082, while
+        // local inference continues to use 127.0.0.1:8081.
+        val listenOnAll = false
         return BackendConfig(modelId, backendType, width, height, listenOnAll)
     }
 
