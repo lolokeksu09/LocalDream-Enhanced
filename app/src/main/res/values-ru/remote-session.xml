@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="remote_pairing_key_host">Ключ сопряжения (не сообщайте посторонним)</string>
+    <string name="remote_pairing_key_hint">На втором устройстве введите этот ключ и адрес сервера. После перезапуска режима сервера ключ меняется. Передача по локальной сети не зашифрована.</string>
+    <string name="remote_pairing_key_input">Ключ сопряжения с сервера</string>
+</resources>
