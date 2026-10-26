@@ -28,6 +28,8 @@ data class RemoteConnection(
 sealed class RemoteConnectResult {
     data class Success(val deviceName: String) : RemoteConnectResult()
     data object Unreachable : RemoteConnectResult()
+    data object KeyRejected : RemoteConnectResult()
+    data object IncompatibleHost : RemoteConnectResult()
 }
 
 /**
@@ -130,8 +132,8 @@ class RemoteRepository private constructor(private val context: Context) {
 
         val client = RemoteApiClient(host, port, key)
         val info = client.fetchInfo() ?: return RemoteConnectResult.Unreachable
-        if (info.protocol != RemoteProtocol.PROTOCOL_VERSION) return RemoteConnectResult.Unreachable
-        val catalog = client.fetchCatalog() ?: return RemoteConnectResult.Unreachable
+        if (info.protocol != RemoteProtocol.PROTOCOL_VERSION) return RemoteConnectResult.IncompatibleHost
+        val catalog = client.fetchCatalog() ?: return RemoteConnectResult.KeyRejected
 
         val name = info.deviceName.ifEmpty { host }
         connection = RemoteConnection(host, port, name, key)
