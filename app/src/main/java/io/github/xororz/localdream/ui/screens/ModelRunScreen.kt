@@ -208,6 +208,7 @@ fun ModelRunScreen(
     val scope = rememberCoroutineScope()
     val generationPreferences = remember { GenerationPreferences(context) }
     val coroutineScope = rememberCoroutineScope()
+    val batchController = remember(coroutineScope) { ModelRunBatchController(coroutineScope) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val modelRepository = remember { ModelRepository.getInstance(context) }
     val remoteRepository = remember { RemoteRepository.getInstance(context) }
@@ -356,7 +357,6 @@ fun ModelRunScreen(
     var scheduler by remember { mutableStateOf(GenerationDefaults.GLOBAL.scheduler) }
     var aspectRatio by remember { mutableStateOf(GenerationDefaults.GLOBAL.aspectRatio) }
     var showCustomAspectRatioDialog by remember { mutableStateOf(false) }
-    var currentBatchIndex by remember { mutableIntStateOf(0) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val editReferenceImages = remember { mutableStateListOf<EditReferenceSelection>() }
     // Native-edit references are independent of the base image, so they track their
@@ -531,7 +531,6 @@ fun ModelRunScreen(
     }.collectAsState(initial = null)
 
     var saveAllJob: Job? by remember { mutableStateOf(null) }
-    var batchGenerationJob: Job? by remember { mutableStateOf(null) }
 
     // Upscaler related states
     var showUpscalerDialog by remember { mutableStateOf(false) }
@@ -967,7 +966,7 @@ fun ModelRunScreen(
             useOpenCL = false,
             scheduler = scheduler,
         )
-        batchGenerationJob = coroutineScope.launch {
+        batchController.launchSingle ultrafix@ {
             // The progress card lives on the prompt page; bring it into view.
             try {
                 pagerState.animateScrollToPage(0)
@@ -1010,18 +1009,12 @@ fun ModelRunScreen(
             } finally {
                 isUltrafixPreparing = false
             }
-            if (!started) return@launch
+            if (!started) return@ultrafix
 
             // Same teardown as the batch loop: wait for the terminal state and
             // the service stop, then clear the running flag so the prompt-page
             // progress card doesn't linger at 0%.
-            BackgroundGenerationService.generationState.first { state ->
-                state is GenerationState.Complete || state is GenerationState.Error
-            }
-            withTimeoutOrNull(5000L) {
-                BackgroundGenerationService.isServiceRunning.first { !it }
-            }
-            BackgroundGenerationService.resetState()
+            batchController.awaitTerminalAndStop()
             isRunning = false
         }
     }
@@ -1272,6 +1265,9 @@ fun ModelRunScreen(
 
     fun cleanup() {
         try {
+            // Cancel the producer before stopping the service: no next
+            // batch item may start while teardown is in progress.
+            batchController.cancel()
             currentBitmap = null
             generationParams = null
             BackgroundGenerationService.stop(context)
@@ -1296,14 +1292,13 @@ fun ModelRunScreen(
             isRunning = false
             progress = 0f
             errorMessage = null
-            currentBatchIndex = 0
+
             generationStartTime = null
             BackgroundGenerationService.resetState()
             coroutineScope.launch {
                 pagerState.scrollToPage(0)
             }
             saveAllJob?.cancel()
-            batchGenerationJob?.cancel()
         } catch (e: Exception) {
             Log.e("ModelRunScreen", "error", e)
         }
@@ -1318,15 +1313,14 @@ fun ModelRunScreen(
     // Stops the in-flight generation (single or batch) but keeps the backend
     // and the screen alive, so the user can immediately generate again.
     fun interruptGeneration() {
-        batchGenerationJob?.cancel()
-        batchGenerationJob = null
+        batchController.cancel()
         BackgroundGenerationService.stop(context)
         BackgroundGenerationService.resetState()
         intermediateBitmap = null
         pendingUltrafix = false
         isRunning = false
         progress = 0f
-        currentBatchIndex = 0
+
         generationStartTime = null
         Toast.makeText(
             context,
@@ -2167,39 +2161,29 @@ fun ModelRunScreen(
                                     "start generation batch: $batchCounts times",
                                 )
 
-                                // If seed is set, only generate once regardless of batch count
-                                val actualBatchCount =
-                                    if (seed.isNotBlank()) 1 else batchCounts
-
-                                batchGenerationJob = coroutineScope.launch {
-                                    // Freeze the selected reference set for the
-                                    // whole batch and persist it immediately
-                                    // before the first service request. This
-                                    // also closes races with rapid thumbnail
-                                    // removals rewriting the scratch file.
-                                    val editReferencePayloads =
-                                        if (supportsReferenceEditing) {
-                                            editReferenceImages.map { it.base64 }
-                                        } else {
-                                            emptyList()
+                                val actualBatchCount = effectiveGenerationBatchCount(seed, batchCounts)
+                                var editReferencePayloads: List<String> = emptyList()
+                                batchController.launchBatch(
+                                    count = actualBatchCount,
+                                    beforeFirst = {
+                                        // Freeze selected references for the whole batch.
+                                        editReferencePayloads =
+                                            if (supportsReferenceEditing) {
+                                                editReferenceImages.map { it.base64 }
+                                            } else {
+                                                emptyList()
+                                            }
+                                        if (editReferencePayloads.isNotEmpty()) {
+                                            withContext(Dispatchers.IO) {
+                                                val json = JSONArray()
+                                                editReferencePayloads.forEach { json.put(it) }
+                                                File(context.filesDir, "dit_references.json")
+                                                    .writeText(json.toString())
+                                            }
                                         }
-                                    if (editReferencePayloads.isNotEmpty()) {
-                                        withContext(Dispatchers.IO) {
-                                            val json = JSONArray()
-                                            editReferencePayloads.forEach { json.put(it) }
-                                            File(context.filesDir, "dit_references.json")
-                                                .writeText(json.toString())
-                                        }
-                                    }
-                                    for (i in 0 until actualBatchCount) {
-                                        currentBatchIndex = i + 1
-                                        Log.d(
-                                            "ModelRunScreen",
-                                            "preparing batch $i",
-                                        )
-
-                                        // Update generationParamsTmp to reflect current parameters
-                                        // This allows parameters to be changed during batch execution
+                                    },
+                                    submit = { i ->
+                                        Log.d("ModelRunScreen", "preparing batch $i")
                                         generationParamsTmp = GenerationParameters(
                                             steps = steps.roundToInt(),
                                             cfg = cfg,
@@ -2214,7 +2198,6 @@ fun ModelRunScreen(
                                             useOpenCL = useOpenCL,
                                             scheduler = scheduler,
                                         )
-
                                         val batchIntent = Intent(
                                             context,
                                             BackgroundGenerationService::class.java,
@@ -2266,50 +2249,15 @@ fun ModelRunScreen(
                                             "ModelRunScreen",
                                             "start service sent - batch $i",
                                         )
-
-                                        BackgroundGenerationService.generationState
-                                            .first { state ->
-                                                state is GenerationState.Complete ||
-                                                    state is GenerationState.Error
-                                            }
-
+                                    },
+                                    onFinished = {
+                                        isRunning = false
                                         Log.d(
                                             "ModelRunScreen",
-                                            "batch $i completed, waiting for service to stop",
+                                            "all batches completed, isRunning set to false",
                                         )
-
-                                        // Wait for service to actually stop
-                                        val waitStartTime =
-                                            System.currentTimeMillis()
-                                        val stopped = withTimeoutOrNull(5000L) {
-                                            BackgroundGenerationService.isServiceRunning
-                                                .first { !it }
-                                        }
-                                        if (stopped == null) {
-                                            Log.w(
-                                                "ModelRunScreen",
-                                                "Timeout waiting for service to stop",
-                                            )
-                                        }
-
-                                        Log.d(
-                                            "ModelRunScreen",
-                                            "service stopped, wait time: ${System.currentTimeMillis() - waitStartTime}ms",
-                                        )
-
-                                        BackgroundGenerationService.resetState()
-                                        Log.d(
-                                            "ModelRunScreen",
-                                            "service state reset, ready for next batch",
-                                        )
-                                    }
-                                    currentBatchIndex = 0
-                                    isRunning = false
-                                    Log.d(
-                                        "ModelRunScreen",
-                                        "all batches completed, isRunning set to false",
-                                    )
-                                }
+                                    },
+                                )
                             },
                             enabled = serviceState !is GenerationState.Progress &&
                                 !isRunning && !isUpscaling && !isUltrafixPreparing &&
@@ -2394,12 +2342,12 @@ fun ModelRunScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            text = if (currentBatchIndex > 0) {
+                            text = if (batchController.currentIndex > 0) {
                                 "${
                                     stringResource(
                                         R.string.generating,
                                     )
-                                } ($currentBatchIndex/$batchCounts)…"
+                                } (${batchController.currentIndex}/$batchCounts)…"
                             } else {
                                 stringResource(
                                     R.string.generating,
