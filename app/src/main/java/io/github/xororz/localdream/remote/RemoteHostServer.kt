@@ -7,7 +7,6 @@ import java.io.InputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.json.JSONObject
@@ -185,11 +184,9 @@ class RemoteHostServer(
             return Response(200, handler.info())
         }
         val key = request.authorization ?: return Response(401, errorBody("unauthorized"))
-        if (!MessageDigest.isEqual(
-                sessionKey.toByteArray(StandardCharsets.US_ASCII),
-                key.toByteArray(StandardCharsets.US_ASCII),
-            )
-        ) return Response(401, errorBody("unauthorized"))
+        if (!RemotePairingKey.matches(sessionKey, key)) {
+            return Response(401, errorBody("unauthorized"))
+        }
         return when {
             request.method == "GET" && request.path == RemoteProtocol.PATH_MODELS ->
                 Response(200, handler.models())
