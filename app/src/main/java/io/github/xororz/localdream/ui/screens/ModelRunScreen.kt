@@ -316,15 +316,13 @@ fun ModelRunScreen(
         generationPreferences.observeShareClearClipboardOnImport()
     }.collectAsState(initial = true)
 
-    // Selection mode state
-    var isSelectionMode by remember { mutableStateOf(false) }
-    val selectedIds = remember { mutableStateListOf<Long>() }
+    // Batch selection and export progress have a single state owner.
+    val historyBulk = remember { ModelRunHistoryBulkController() }
+    val isSelectionMode = historyBulk.isSelectionMode
+    val selectedIds = historyBulk.selectedIds
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var showBatchSaveDialog by remember { mutableStateOf(false) }
-    var isBatchSaving by remember { mutableStateOf(false) }
-    var batchSaveTotal by remember { mutableIntStateOf(0) }
-    var batchSaveCurrent by remember { mutableIntStateOf(0) }
-    var batchSaveFailed by remember { mutableIntStateOf(0) }
+    val isBatchSaving = historyBulk.isSaving
 
     var generationParamsTmp by remember {
         mutableStateOf(
@@ -2840,44 +2838,24 @@ fun ModelRunScreen(
                             onFilterChange = { historyFilter = it },
                             onShowFilterSheet = { showHistoryFilterSheet = true },
                             onItemClick = { item ->
-                                if (isSelectionMode) {
-                                    // Toggle selection
-                                    if (item.id in selectedIds) {
-                                        selectedIds.remove(item.id)
-                                        if (selectedIds.isEmpty()) {
-                                            isSelectionMode = false
-                                        }
-                                    } else {
-                                        selectedIds.add(item.id)
-                                    }
+                                if (historyBulk.isSelectionMode) {
+                                    historyBulk.toggle(item.id)
                                 } else {
-                                    // Normal preview
                                     selectedHistoryItem = item
                                     showHistoryDetailDialog = true
                                 }
                             },
                             onItemLongClick = { item ->
-                                if (!isSelectionMode) {
-                                    isSelectionMode = true
-                                    selectedIds.clear()
-                                    selectedIds.add(item.id)
-                                }
+                                if (!historyBulk.isSelectionMode) historyBulk.startSelection(item.id)
                             },
-                            onExitSelection = {
-                                isSelectionMode = false
-                                selectedIds.clear()
-                            },
+                            onExitSelection = { historyBulk.clearSelection() },
                             onToggleSelectAll = {
-                                // Select-all covers every match via an id query,
-                                // not only the loaded pages.
-                                if (historyTotalCount > 0 && selectedIds.size >= historyTotalCount) {
-                                    selectedIds.clear()
-                                    isSelectionMode = false
+                                if (historyBulk.shouldClearSelectAll(historyTotalCount)) {
+                                    historyBulk.clearSelection()
                                 } else {
                                     scope.launch {
                                         val allIds = historyManager.queryIds(historyFilter)
-                                        selectedIds.clear()
-                                        selectedIds.addAll(allIds)
+                                        historyBulk.selectAll(allIds)
                                     }
                                 }
                             },
@@ -3632,57 +3610,35 @@ fun ModelRunScreen(
                 val ids = selectedIds.toList()
                 showBatchSaveDialog = false
                 if (ids.isNotEmpty()) {
-                    batchSaveTotal = ids.size
-                    batchSaveCurrent = 0
-                    batchSaveFailed = 0
-                    isBatchSaving = true
-                    scope.launch(Dispatchers.IO) {
-                        // Resolve ids to items; any gone-missing counts as failed.
-                        val items = historyManager.getItems(ids)
-                        val missing = ids.size - items.size
-                        if (missing > 0) {
-                            withContext(Dispatchers.Main) {
-                                batchSaveFailed += missing
-                                batchSaveCurrent += missing
-                            }
+                    historyBulk.beginSave(ids.size)
+                    scope.launch {
+                        val summary = historyBulk.export(
+                            ids = ids,
+                            resolve = historyManager::getItems,
+                            idOf = { item -> item.id },
+                            save = { item ->
+                                var success = false
+                                if (item.imageFile.exists()) {
+                                    saveImageFromFile(
+                                        context = context,
+                                        sourceFile = item.imageFile,
+                                        onSuccess = { success = true },
+                                        onError = { },
+                                    )
+                                }
+                                success
+                            },
+                        )
+                        val message = if (summary.failed == 0) {
+                            resources.getQuantityString(
+                                R.plurals.saved_count,
+                                summary.succeeded,
+                                summary.succeeded,
+                            )
+                        } else {
+                            msgSavedCountWithFailed.format(summary.succeeded, summary.failed)
                         }
-                        items.forEach { item ->
-                            var success = false
-                            if (item.imageFile.exists()) {
-                                saveImageFromFile(
-                                    context = context,
-                                    sourceFile = item.imageFile,
-                                    onSuccess = { success = true },
-                                    onError = { },
-                                )
-                            }
-                            withContext(Dispatchers.Main) {
-                                batchSaveCurrent += 1
-                                if (!success) batchSaveFailed += 1
-                            }
-                        }
-                        withContext(Dispatchers.Main) {
-                            val total = batchSaveTotal
-                            val failed = batchSaveFailed
-                            val saved = total - failed
-                            val message = if (failed == 0) {
-                                resources.getQuantityString(
-                                    R.plurals.saved_count,
-                                    saved,
-                                    saved,
-                                )
-                            } else {
-                                msgSavedCountWithFailed.format(saved, failed)
-                            }
-                            Toast.makeText(
-                                context,
-                                message,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                            isBatchSaving = false
-                            selectedIds.clear()
-                            isSelectionMode = false
-                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -3692,7 +3648,7 @@ fun ModelRunScreen(
 
     // Batch save progress dialog (modal — blocks other interactions)
     if (isBatchSaving) {
-        BatchSaveProgressDialog(current = batchSaveCurrent, total = batchSaveTotal)
+        BatchSaveProgressDialog(current = historyBulk.saveCurrent, total = historyBulk.saveTotal)
     }
 
     // Batch delete confirmation dialog
@@ -3710,21 +3666,19 @@ fun ModelRunScreen(
                 val ids = selectedIds.toList()
                 showBatchDeleteDialog = false
                 scope.launch {
-                    val itemsToDelete = historyManager.getItems(ids)
-                    val successCount = historyManager.deleteHistoryItems(itemsToDelete)
-                    val failCount = ids.size - successCount
-
-                    selectedIds.clear()
-                    isSelectionMode = false
-
-                    val message = if (failCount == 0) {
+                    val summary = historyBulk.delete(
+                        ids = ids,
+                        resolve = historyManager::getItems,
+                        deleteResolved = historyManager::deleteHistoryItems,
+                    )
+                    val message = if (summary.failed == 0) {
                         resources.getQuantityString(
                             R.plurals.deleted_count,
-                            successCount,
-                            successCount,
+                            summary.succeeded,
+                            summary.succeeded,
                         )
                     } else {
-                        msgDeletedCountWithFailed.format(successCount, failCount)
+                        msgDeletedCountWithFailed.format(summary.succeeded, summary.failed)
                     }
                     Toast.makeText(
                         context,
