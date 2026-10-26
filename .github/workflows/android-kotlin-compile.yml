@@ -123,6 +123,11 @@ jobs:
           find app/src/main/assets/qnnlibs -type f -name '*.so' -print -quit | grep -q .
           echo "Native runtime staged from the exact upstream base release."
 
+      - name: Run focused model-install regression tests
+        run: |
+          ./gradlew --no-daemon :app:testBasicDebugUnitTest \
+            --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest"
+
       - name: Build preview APK
         shell: bash
         run: |
