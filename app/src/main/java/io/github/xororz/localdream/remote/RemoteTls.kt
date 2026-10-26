@@ -11,6 +11,9 @@ import java.security.cert.X509Certificate
 import java.util.Date
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.KeyManager
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.X509ExtendedTrustManager
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLServerSocketFactory
 import javax.net.ssl.TrustManagerFactory
@@ -96,15 +99,53 @@ internal object RemoteTls {
         managerFactory.trustManagers.filterIsInstance<X509TrustManager>().first()
     }
 
-    private fun trustManager(allowedFingerprint: () -> String?): X509TrustManager =
-        object : X509TrustManager {
+    private fun trustManager(allowedFingerprint: () -> String?): X509ExtendedTrustManager =
+        object : X509ExtendedTrustManager() {
             override fun getAcceptedIssuers(): Array<X509Certificate> = systemTrust.acceptedIssuers
 
             override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) =
                 systemTrust.checkClientTrusted(chain, authType)
 
             override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
-                val pin = allowedFingerprint()
+                checkPinnedServerTrusted(chain, authType, allowedFingerprint())
+            }
+
+            // Android 16 can reject a legacy custom X509TrustManager when the
+            // hostname-aware overload is missing. Keep the same certificate
+            // pinning and CA validation for every TLS entry point.
+            override fun checkClientTrusted(
+                chain: Array<X509Certificate>,
+                authType: String,
+                socket: SSLSocket,
+            ) = systemTrust.checkClientTrusted(chain, authType)
+
+            override fun checkServerTrusted(
+                chain: Array<X509Certificate>,
+                authType: String,
+                socket: SSLSocket,
+            ) {
+                checkPinnedServerTrusted(chain, authType, allowedFingerprint())
+            }
+
+            override fun checkClientTrusted(
+                chain: Array<X509Certificate>,
+                authType: String,
+                engine: SSLEngine,
+            ) = systemTrust.checkClientTrusted(chain, authType)
+
+            override fun checkServerTrusted(
+                chain: Array<X509Certificate>,
+                authType: String,
+                engine: SSLEngine,
+            ) {
+                checkPinnedServerTrusted(chain, authType, allowedFingerprint())
+            }
+
+            private fun checkPinnedServerTrusted(
+                chain: Array<X509Certificate>,
+                authType: String,
+                pin: String?,
+            ) {
                 if (pin != null && chain.isNotEmpty() && fingerprint(chain[0]) == pin) return
                 systemTrust.checkServerTrusted(chain, authType)
             }
