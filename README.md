@@ -9,6 +9,16 @@ _Also supports CPU/GPU inference_
 
 </div>
 
+## LocalDream-Enhanced fork
+
+This repository is a community fork of [xororz/local-dream](https://github.com/xororz/local-dream).
+
+- Original project and copyright remain credited to the upstream author.
+- Upstream code and adapted material remain subject to the upstream **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license; see [LICENSE](./LICENSE).
+- Changes made in this fork are recorded in [CHANGELOG.md](./CHANGELOG.md).
+- This fork is independent and is not affiliated with or endorsed by the upstream author.
+- The non-commercial restriction applies to distribution and use of the licensed material. Third-party components may have separate terms.
+
 ## About this Repo
 
 This project is **now open sourced and completely free**. Hope you enjoy it!

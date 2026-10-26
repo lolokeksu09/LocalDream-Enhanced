@@ -127,6 +127,14 @@
 
     <!-- Run Screen -->
     <string name="prompt_settings">Prompts</string>
+    <string name="prompt_templates">Prompt templates</string>
+    <string name="prompt_templates_hint">Save positive and negative prompts on this device. Saving with an existing name updates that template.</string>
+    <string name="no_prompt_templates">No templates saved yet.</string>
+    <string name="prompt_template_name">Template name</string>
+    <string name="prompt_template_name_required">Enter a template name.</string>
+    <string name="apply_prompt_template">Apply</string>
+    <string name="delete_prompt_template">Delete</string>
+    <string name="prompt_template_delete_confirm">Delete the template “%1$s”?</string>
     <string name="advanced_settings">Advanced</string>
     <string name="advanced_settings_title">Advanced Settings</string>
     <string name="image_prompt">Image Generation Prompt</string>

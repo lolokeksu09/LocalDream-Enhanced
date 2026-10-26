@@ -428,6 +428,7 @@ fun ModelRunScreen(
     var pendingResolution by remember { mutableStateOf<Resolution?>(null) }
     var backendRestartTrigger by remember { mutableIntStateOf(0) }
     var showAdvancedSettings by remember { mutableStateOf(false) }
+    var showPromptTemplates by remember { mutableStateOf(false) }
 
     var isPreviewMode by remember { mutableStateOf(false) }
     val preferences = remember {
@@ -2184,6 +2185,29 @@ fun ModelRunScreen(
                                 )
                             },
                         )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(onClick = { showPromptTemplates = true }) {
+                                Text(stringResource(R.string.prompt_templates))
+                            }
+                        }
+
+                        if (showPromptTemplates) {
+                            PromptTemplatesDialog(
+                                currentPrompt = promptField.text,
+                                currentNegativePrompt = negativePromptField.text,
+                                onApply = { prompt, negativePrompt ->
+                                    promptField.replaceText(prompt)
+                                    negativePromptField.replaceText(negativePrompt)
+                                    saveAllFields()
+                                    showPromptTemplates = false
+                                },
+                                onDismiss = { showPromptTemplates = false },
+                            )
+                        }
 
                         Button(
                             onClick = {
