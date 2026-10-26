@@ -3,4 +3,6 @@
     <string name="remote_pairing_key_host">Pairing key (keep private)</string>
     <string name="remote_pairing_key_hint">On the controller, enter this key along with the host address. The key changes whenever host mode restarts. LAN traffic is not encrypted.</string>
     <string name="remote_pairing_key_input">Pairing key from host</string>
+    <string name="remote_pairing_rejected">Pairing failed. Check the key and make sure host mode is still running.</string>
+    <string name="remote_protocol_mismatch">Update Local Dream on both devices. The other device uses an incompatible remote protocol.</string>
 </resources>
