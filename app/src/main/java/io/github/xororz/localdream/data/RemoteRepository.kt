@@ -10,6 +10,7 @@ import io.github.xororz.localdream.R
 import io.github.xororz.localdream.remote.RemoteApiClient
 import io.github.xororz.localdream.remote.RemoteCatalog
 import io.github.xororz.localdream.remote.RemoteProtocol
+import io.github.xororz.localdream.remote.RemotePairingKey
 import io.github.xororz.localdream.remote.RemoteSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -104,7 +105,7 @@ class RemoteRepository private constructor(private val context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val host = prefs.getString(KEY_HOST, null) ?: return
         val key = prefs.getString(KEY_CODE, null) ?: return
-        if (!key.matches(Regex("[0-9A-F]{32}"))) return
+        if (RemotePairingKey.normalize(key) == null) return
         connection = RemoteConnection(
             host = host,
             port = prefs.getInt(KEY_PORT, RemoteProtocol.CONTROL_PORT),
@@ -122,8 +123,8 @@ class RemoteRepository private constructor(private val context: Context) {
         val host = hostInput.substringBefore(':').trim()
         val port = hostInput.substringAfter(':', "").toIntOrNull()
             ?: RemoteProtocol.CONTROL_PORT
-        val key = pairingCode.trim().uppercase(java.util.Locale.ROOT)
-        if (host.isEmpty() || port !in 1..65535 || !key.matches(Regex("[0-9A-F]{32}"))) {
+        val key = RemotePairingKey.normalize(pairingCode)
+        if (host.isEmpty() || port !in 1..65535 || key == null) {
             return RemoteConnectResult.Unreachable
         }
 
