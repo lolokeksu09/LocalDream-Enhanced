@@ -1494,12 +1494,6 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                         preferences.getBoolean("enable_log_capture", false),
                                     )
                                 }
-                                var listenOnAllAddresses by remember {
-                                    mutableStateOf(
-                                        preferences.getBoolean("listen_on_all_addresses", false),
-                                    )
-                                }
-                                var showBackendLanWarning by remember { mutableStateOf(false) }
                                 var enableTagAutocomplete by remember {
                                     mutableStateOf(
                                         preferences.getBoolean("enable_tag_autocomplete", true)
@@ -1849,44 +1843,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                 )
-                                SwitchSettingRow(
-                                    title = stringResource(R.string.listen_on_all_addresses),
-                                    description = stringResource(R.string.listen_on_all_addresses_hint),
-                                    checked = listenOnAllAddresses,
-                                    onCheckedChange = { enabled ->
-                                        if (enabled) {
-                                            showBackendLanWarning = true
-                                        } else {
-                                            listenOnAllAddresses = false
-                                            preferences.edit {
-                                                putBoolean("listen_on_all_addresses", false)
-                                            }
-                                        }
-                                    },
-                                )
-                                if (showBackendLanWarning) {
-                                    AlertDialog(
-                                        onDismissRequest = { showBackendLanWarning = false },
-                                        title = { Text(stringResource(R.string.remote_lan_warning_title)) },
-                                        text = { Text(stringResource(R.string.backend_lan_warning_body)) },
-                                        confirmButton = {
-                                            TextButton(onClick = {
-                                                listenOnAllAddresses = true
-                                                preferences.edit {
-                                                    putBoolean("listen_on_all_addresses", true)
-                                                }
-                                                showBackendLanWarning = false
-                                            }) {
-                                                Text(stringResource(R.string.remote_lan_warning_continue))
-                                            }
-                                        },
-                                        dismissButton = {
-                                            TextButton(onClick = { showBackendLanWarning = false }) {
-                                                Text(stringResource(R.string.cancel))
-                                            }
-                                        },
-                                    )
-                                }
+
                             }
                         }
                     }
