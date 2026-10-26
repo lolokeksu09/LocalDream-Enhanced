@@ -88,7 +88,7 @@ class ModelRunRequestTest {
         assertEquals("blur", params.negativePrompt)
         assertEquals(22, params.steps)
         assertEquals(5.5f, params.cfg)
-        assertEquals(0, params.seed)
+        assertEquals(0L, params.seed)
         assertEquals(1024, params.width)
         assertEquals(1024, params.height)
         assertEquals(0.45f, params.denoiseStrength)
