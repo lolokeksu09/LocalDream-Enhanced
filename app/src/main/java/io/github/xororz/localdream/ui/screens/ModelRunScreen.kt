@@ -1324,24 +1324,13 @@ fun ModelRunScreen(
                         isInpaintMode = isInpaintMode,
                     )
 
-                    val newParams = GenerationParameters(
-                        steps = generationParamsTmp.steps,
-                        cfg = generationParamsTmp.cfg,
-                        seed = returnedSeed,
-                        prompt = generationParamsTmp.prompt,
-                        negativePrompt = generationParamsTmp.negativePrompt,
+                    val newParams = completeModelRunParameters(
+                        requested = generationParamsTmp,
+                        resultSeed = returnedSeed,
                         generationTime = genTime,
-                        // The result bitmap is the source of truth: SDXL crops a
-                        // non-1:1 aspect out of its 1024 canvas, so the requested
-                        // size is not what came back. (This used to read the
-                        // request for runOnCpu models, which was only ever right
-                        // while SD1.5 CPU was the sole CPU format.)
-                        width = state.bitmap.width,
-                        height = state.bitmap.height,
+                        resultWidth = state.bitmap.width,
+                        resultHeight = state.bitmap.height,
                         runOnCpu = model?.runOnCpu ?: false,
-                        denoiseStrength = generationParamsTmp.denoiseStrength,
-                        useOpenCL = generationParamsTmp.useOpenCL,
-                        scheduler = generationParamsTmp.scheduler,
                         mode = currentGenerationMode,
                     )
 
@@ -1349,8 +1338,9 @@ fun ModelRunScreen(
                     // forwarded to both the snapshot and the currently-displayed marker
                     // so handleSaveImage can later confirm the user is still looking at
                     // this generation (and not a different history thumbnail).
-                    coroutineScope.launch(Dispatchers.IO) {
-                        val savedItem = historyManager.saveGeneratedImage(
+                    coroutineScope.launch {
+                        val savedItem = saveModelRunCompletion(
+                            historyManager = historyManager,
                             modelId = modelId,
                             bitmap = state.bitmap,
                             params = newParams,
