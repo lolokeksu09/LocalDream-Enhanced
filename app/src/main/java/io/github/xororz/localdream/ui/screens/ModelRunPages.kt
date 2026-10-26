@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -563,6 +564,20 @@ internal fun ModelRunHistoryPage(
                                         .build(),
                                     contentDescription = "Generated image",
                                     modifier = Modifier.fillMaxSize(),
+                                )
+
+                                // Keeps timestamp and selection controls readable over bright images.
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.58f),
+                                                ),
+                                            ),
+                                        ),
                                 )
 
                                 if (isSelected) {
