@@ -20,11 +20,12 @@ import org.json.JSONObject
 class RemoteApiClient(
     val host: String,
     val port: Int = RemoteProtocol.CONTROL_PORT,
+    private val sessionKey: String = "",
 ) {
     private val baseUrl = "http://$host:$port"
 
-    /** host:port of the native backend on the host device. */
-    val generationHost: String = "$host:${RemoteProtocol.GENERATION_PORT}"
+    /** host:port of the authenticated LAN gateway (native remains loopback-only). */
+    val generationHost: String = "$host:${RemoteProtocol.GATEWAY_PORT}"
 
     private val client: OkHttpClient by lazy {
         Http.client.newBuilder()
@@ -86,18 +87,20 @@ class RemoteApiClient(
     }
 
     private fun get(path: String): JSONObject? {
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url(baseUrl + path)
             .get()
-            .build()
+        if (sessionKey.isNotEmpty()) builder.header(RemoteProtocol.AUTH_HEADER, sessionKey)
+        val request = builder.build()
         return execute(request)
     }
 
     private fun post(path: String, body: JSONObject): JSONObject? {
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url(baseUrl + path)
             .post(body.toString().toRequestBody("application/json".toMediaTypeOrNull()))
-            .build()
+        if (sessionKey.isNotEmpty()) builder.header(RemoteProtocol.AUTH_HEADER, sessionKey)
+        val request = builder.build()
         return execute(request)
     }
 
