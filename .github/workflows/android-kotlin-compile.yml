@@ -1,13 +1,15 @@
 name: LocalDream preview APK
 
 on:
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: localdream-preview-${{ github.ref }}
+  group: localdream-preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -65,3 +67,93 @@ jobs:
               raise SystemExit(f"Duplicate resource names: {duplicates}")
           print(f"Valid XML; {len(names)} named resources; no duplicates.")
           PY
+
+      - name: Restore matching upstream native runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/localdream-upstream.apk"
+          STAGE="$RUNNER_TEMP/localdream-upstream"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://github.com/xororz/local-dream/releases/download/v3.0.0-alpha.6/LocalDream_armv8a_3.0.0-alpha.6.apk" \
+            --output "$APK"
+          echo "bec75b588200eb83aedd82b0a26ed8c5de4cfd923d0f51e1e65d241fccc11f82  $APK" | sha256sum --check
+          mkdir -p "$STAGE"
+          python3 - "$APK" "$STAGE" <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          apk = Path(sys.argv[1])
+          stage = Path(sys.argv[2])
+          prefixes = (
+              "lib/arm64-v8a/",
+              "assets/qnnlibs/",
+              "assets/ditlibs/",
+              "assets/licenses/qnn-2.51.0.260929/",
+          )
+          with zipfile.ZipFile(apk) as archive:
+              names = set(archive.namelist())
+              required = {
+                  "lib/arm64-v8a/libstable_diffusion_core.so",
+                  "lib/arm64-v8a/libdit_engine.so",
+              }
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit(f"Upstream APK missing required native libraries: {missing}")
+              if not any(n.startswith("assets/qnnlibs/") and n.endswith(".so") for n in names):
+                  raise SystemExit("Upstream APK contains no QNN runtime libraries")
+              selected = [n for n in names if n.startswith(prefixes)]
+              for name in selected:
+                  target = (stage / name).resolve()
+                  if stage.resolve() not in target.parents:
+                      raise SystemExit(f"Unsafe archive path: {name}")
+                  archive.extract(name, stage)
+              print(f"Extracted {len(selected)} pinned native runtime files.")
+          PY
+          mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/assets
+          cp -a "$STAGE/lib/arm64-v8a/." app/src/main/jniLibs/arm64-v8a/
+          for dir in qnnlibs ditlibs licenses; do
+            if [[ -d "$STAGE/assets/$dir" ]]; then
+              cp -a "$STAGE/assets/$dir" app/src/main/assets/
+            fi
+          done
+          test -s app/src/main/jniLibs/arm64-v8a/libstable_diffusion_core.so
+          test -s app/src/main/jniLibs/arm64-v8a/libdit_engine.so
+          find app/src/main/assets/qnnlibs -type f -name '*.so' -print -quit | grep -q .
+          echo "Native runtime staged from the exact upstream base release."
+
+      - name: Build preview APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/localdream-preview.jks"
+          KEY_PASSWORD="$(openssl rand -hex 16)"
+          keytool -genkeypair -noprompt \
+            -keystore "$KEYSTORE" \
+            -storepass "$KEY_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -alias localdream-preview \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Local Dream Preview"
+          ./gradlew --no-daemon :app:assembleBasicDebug \
+            -PPREVIEW_BUILD=true \
+            -PRELEASE_STORE_FILE="$KEYSTORE" \
+            -PRELEASE_STORE_PASSWORD="$KEY_PASSWORD" \
+            -PRELEASE_KEY_ALIAS=localdream-preview \
+            -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD"
+          APK_PATH="$(find app/build/outputs/apk/basic/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          if [[ -z "$APK_PATH" ]]; then
+            echo "Gradle completed without producing the expected APK." >&2
+            exit 1
+          fi
+          echo "Built APK: $APK_PATH"
+          sha256sum "$APK_PATH"
+
+      - name: Upload preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalDream-preview-APK
+          path: app/build/outputs/apk/basic/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
