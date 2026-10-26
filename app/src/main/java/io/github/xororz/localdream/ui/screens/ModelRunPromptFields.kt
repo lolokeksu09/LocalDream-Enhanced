@@ -53,7 +53,8 @@ internal fun ModelRunPromptFields(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        SuggestionChip(
+        FilterChip(
+            selected = false,
             onClick = {
                 onApplyTemplates(
                     "masterpiece, high quality portrait, detailed face, soft cinematic lighting, sharp focus",
