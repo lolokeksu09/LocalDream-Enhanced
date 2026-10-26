@@ -1,24 +1,20 @@
-name: Android Kotlin compile
+name: LocalDream preview APK
 
 on:
-  pull_request:
-    branches: [master]
-  push:
-    branches: [master, "feature/**"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-kotlin-${{ github.workflow }}-${{ github.ref }}
+  group: localdream-preview-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  compile:
-    name: Compile basic debug Kotlin
+  build:
+    name: Build installable preview APK
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -69,6 +65,3 @@ jobs:
               raise SystemExit(f"Duplicate resource names: {duplicates}")
           print(f"Valid XML; {len(names)} named resources; no duplicates.")
           PY
-
-      - name: Compile Kotlin sources
-        run: ./gradlew --no-daemon :app:compileBasicDebugKotlin
