@@ -36,7 +36,7 @@ internal object ModelArchiveInstaller {
             if (!stagingDir.renameTo(modelDir)) {
                 throw IOException("Cannot install the extracted model")
             }
-        } catch (error: IOException) {
+        } catch (error: Exception) {
             if (hadPreviousModel && backupDir.exists() && !modelDir.exists()) {
                 if (!backupDir.renameTo(modelDir)) {
                     error.addSuppressed(
