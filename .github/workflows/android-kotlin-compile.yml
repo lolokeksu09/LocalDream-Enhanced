@@ -1,6 +1,8 @@
 name: LocalDream preview APK
 
 on:
+  push:
+    branches: ["feature/prompt-presets"]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -9,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: localdream-preview-${{ github.event.pull_request.number || github.ref }}
+  group: localdream-preview-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
