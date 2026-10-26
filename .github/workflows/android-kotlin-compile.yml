@@ -128,7 +128,8 @@ jobs:
           ./gradlew --no-daemon :app:testBasicDebugUnitTest \
             --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
             --tests "io.github.xororz.localdream.data.ModelSearchTest" \
-            --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest"
+            --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest" \
+            --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest"
 
       - name: Build preview APK
         shell: bash
