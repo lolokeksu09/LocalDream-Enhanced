@@ -6,6 +6,10 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+// CI preview builds use a separate package ID so they can be installed without
+// replacing the upstream app or requiring its private signing key.
+val previewBuild = providers.gradleProperty("PREVIEW_BUILD").orNull == "true"
+
 ktlint {
     android.set(true)
     version.set("1.8.0")
@@ -31,6 +35,11 @@ android {
 
     defaultConfig {
         applicationId = "io.github.xororz.localdream"
+        if (previewBuild) {
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+        }
+        manifestPlaceholders["appLabel"] = if (previewBuild) "Local Dream Preview" else "@string/app_name"
         minSdk = 28
 //        minSdk = 31
         targetSdk = 36
