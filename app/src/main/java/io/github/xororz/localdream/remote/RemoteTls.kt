@@ -122,7 +122,7 @@ internal object RemoteTls {
             override fun checkServerTrusted(
                 chain: Array<X509Certificate>,
                 authType: String,
-                socket: SSLSocket,
+                socket: Socket,
             ) {
                 checkPinnedServerTrusted(chain, authType, allowedFingerprint())
             }
