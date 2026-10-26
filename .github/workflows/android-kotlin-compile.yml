@@ -180,6 +180,7 @@ jobs:
             --tests "io.github.xororz.localdream.ui.screens.ModelRunParameterStateTest" \
             --tests "io.github.xororz.localdream.ui.screens.ModelRunRequestTest" \
             --tests "io.github.xororz.localdream.ui.screens.ModelRunImagePreparationTest" \
+            --tests "io.github.xororz.localdream.ui.screens.ModelRunImageJobControllerTest" \
             --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
             --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest" \
             --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest" \
