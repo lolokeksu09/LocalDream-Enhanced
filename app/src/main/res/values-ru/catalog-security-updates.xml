@@ -6,7 +6,7 @@
     <string name="catalog_filter_pinned">Закреплённые</string>
     <string name="prompt_template_search_hint">Поиск сохранённых шаблонов</string>
     <string name="prompt_template_no_matches">По запросу шаблоны не найдены.</string>
-    <string name="remote_lan_warning_title">Незащищённый доступ по локальной сети</string>
-    <string name="remote_lan_warning_body">Режим сервера открывает порты 8808 и 8081 для устройств локальной сети без авторизации. Другие устройства в сети могут управлять моделями и отправлять запросы генерации. Включайте режим только в доверенной частной сети и выключайте его после использования.</string>
+    <string name="remote_lan_warning_title">Трафик локальной сети не зашифрован</string>
+    <string name="remote_lan_warning_body">Управление и генерация требуют ключ сопряжения длиной 128 бит. Подключение по HTTP не зашифровано, поэтому включайте режим сервера только в доверенной частной сети.</string>
     <string name="remote_lan_warning_continue">Всё равно включить</string>
 </resources>
