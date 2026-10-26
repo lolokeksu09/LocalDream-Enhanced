@@ -1899,6 +1899,16 @@ fun ModelRunScreen(
                             onDismissTemplates = { showPromptTemplates = false },
                         )
 
+                        GenerationQuickSettings(
+                            steps = steps,
+                            cfg = cfg,
+                            onApply = { newSteps, newCfg ->
+                                steps = newSteps
+                                cfg = newCfg
+                                saveAllFields()
+                            },
+                        )
+
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
