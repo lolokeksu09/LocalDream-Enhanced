@@ -272,11 +272,12 @@ fun ModelRunScreen(
     var showOpenCLWarningDialog by remember { mutableStateOf(false) }
     var showInterruptDialog by remember { mutableStateOf(false) }
 
-    var currentBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var intermediateBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var imageVersion by remember { mutableIntStateOf(0) }
-    var generationParams by remember { mutableStateOf<GenerationParameters?>(null) }
-    var generationParamsModelId by remember { mutableStateOf(modelId) }
+    val displayState = remember { ModelRunDisplayState(modelId) }
+    var currentBitmap by displayState::currentBitmap
+    var intermediateBitmap by displayState::intermediateBitmap
+    var imageVersion by displayState::imageVersion
+    var generationParams by displayState::generationParams
+    var generationParamsModelId by displayState::generationParamsModelId
 
     // History state
     var historyFilter by remember(modelId) {
@@ -364,10 +365,10 @@ fun ModelRunScreen(
     var editReferencesLoading by remember { mutableStateOf(false) }
     var showReferenceEditMenu by remember { mutableStateOf(false) }
     var base64EncodeDone by remember { mutableStateOf(false) }
-    var returnedSeed by remember { mutableStateOf<Long?>(null) }
-    var isRunning by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var returnedSeed by displayState::returnedSeed
+    var isRunning by displayState::isRunning
+    var progress by displayState::progress
+    var errorMessage by displayState::errorMessage
     var isCheckingBackend by remember { mutableStateOf(true) }
 
     // True only after a health check succeeded (and reset when a restart
@@ -392,7 +393,7 @@ fun ModelRunScreen(
     }
     var showParametersDialog by remember { mutableStateOf(false) }
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
-    var generationStartTime by remember { mutableStateOf<Long?>(null) }
+    var generationStartTime by displayState::generationStartTime
     var hasInitialized by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
 
@@ -1289,11 +1290,7 @@ fun ModelRunScreen(
                     .setAction(BackendService.ACTION_STOP)
                 context.startForegroundService(backendServiceIntent)
             }
-            isRunning = false
-            progress = 0f
-            errorMessage = null
-
-            generationStartTime = null
+            displayState.onExit()
             BackgroundGenerationService.resetState()
             coroutineScope.launch {
                 pagerState.scrollToPage(0)
@@ -1316,12 +1313,8 @@ fun ModelRunScreen(
         batchController.cancel()
         BackgroundGenerationService.stop(context)
         BackgroundGenerationService.resetState()
-        intermediateBitmap = null
+        displayState.onInterrupt()
         pendingUltrafix = false
-        isRunning = false
-        progress = 0f
-
-        generationStartTime = null
         Toast.makeText(
             context,
             msgGenerationInterrupted,
@@ -1494,23 +1487,19 @@ fun ModelRunScreen(
             BitmapFactory.decodeFile(item.imageFile.absolutePath)
         }
         if (bitmap != null && currentBitmap == null) {
-            currentBitmap = bitmap
-            generationParams = item.params
-            generationParamsModelId = item.modelId
+            displayState.presentResult(bitmap, item.params, item.modelId)
             currentDisplayedHistoryId = item.id
-            imageVersion++
         }
     }
 
     LaunchedEffect(serviceState) {
         when (val state = serviceState) {
             is GenerationState.Progress -> {
-                if (generationStartTime == null) {
-                    generationStartTime = System.currentTimeMillis()
-                }
-                progress = state.progress
-                isRunning = true
-                state.intermediateImage?.let { intermediateBitmap = it }
+                displayState.onProgress(
+                    value = state.progress,
+                    intermediate = state.intermediateImage,
+                    nowMillis = System.currentTimeMillis(),
+                )
             }
 
             is GenerationState.Complete -> {
@@ -1518,25 +1507,8 @@ fun ModelRunScreen(
                 withContext(Dispatchers.Main) {
                     Log.d("ModelRunScreen", "update bitmap")
 
-                    state.seed?.let { returnedSeed = it }
-                    progress = 0f
-
-                    val genTime = generationStartTime?.let { startTime ->
-                        val endTime = System.currentTimeMillis()
-                        val duration = endTime - startTime
-                        when {
-                            duration < 1000 -> "${duration}ms"
-
-                            duration < 60000 -> String.format(Locale.US, "%.1fs", duration / 1000.0)
-
-                            else -> String.format(
-                                Locale.US,
-                                "%dm%ds",
-                                duration / 60000,
-                                (duration % 60000) / 1000,
-                            )
-                        }
-                    }
+                    displayState.onComplete(state.seed)
+                    val genTime = displayState.elapsedLabel(System.currentTimeMillis())
 
                     val wasUltrafix = pendingUltrafix
                     pendingUltrafix = false
@@ -1592,10 +1564,7 @@ fun ModelRunScreen(
                         }
                     }
 
-                    currentBitmap = state.bitmap
-                    generationParams = newParams
-                    generationParamsModelId = modelId
-                    imageVersion += 1
+                    displayState.presentResult(state.bitmap, newParams, modelId)
 
                     if (!wasUltrafix) {
                         snapshotIsInpaintMode = isInpaintMode
@@ -1630,17 +1599,12 @@ fun ModelRunScreen(
             }
 
             is GenerationState.Error -> {
-                intermediateBitmap = null
-                errorMessage = state.message
-                isRunning = false
-                progress = 0f
-                generationStartTime = null
+                displayState.onError(state.message)
                 pendingUltrafix = false
             }
 
             else -> {
-                isRunning = false
-                progress = 0f
+                displayState.onIdle()
             }
         }
     }
