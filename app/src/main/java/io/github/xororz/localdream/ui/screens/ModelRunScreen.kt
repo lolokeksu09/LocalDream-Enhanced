@@ -184,7 +184,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import org.json.JSONArray
 
 private data class EditReferenceSelection(
     val uri: Uri,
@@ -918,22 +917,25 @@ fun ModelRunScreen(
         val ultrafixPrompt =
             if (ultrafixQualityDenoise) GenerationDefaults.ULTRAFIX_QUALITY_PROMPT else promptField.text
         isUltrafixPreparing = true
-        generationParamsTmp = GenerationParameters(
-            steps = totalSteps,
-            cfg = cfg,
-            seed = 0,
-            // Record the prompt UltraFix actually ran with (quality tags when
-            // the toggle is on), so history reflects what produced the result.
+        val ultrafixRequest = ModelRunRequest(
             prompt = ultrafixPrompt,
             negativePrompt = negativePromptField.text,
-            generationTime = "",
+            steps = totalSteps,
+            cfg = cfg,
+            seed = seed,
             width = bmp.width,
             height = bmp.height,
-            runOnCpu = false,
+            effectiveWidth = bmp.width,
+            effectiveHeight = bmp.height,
             denoiseStrength = ultrafixDenoiseStrength,
             useOpenCL = false,
             scheduler = scheduler,
+            aspectRatio = aspectRatio,
+            runOnCpu = false,
+            backendHost = backendHost,
+            ultrafixTileSize = tileSize,
         )
+        generationParamsTmp = ultrafixRequest.historyParameters()
         batchController.launchSingle ultrafix@ {
             // The progress card lives on the prompt page; bring it into view.
             try {
@@ -946,23 +948,7 @@ fun ModelRunScreen(
                     File(context.filesDir, "ultrafix.txt").writeText(bitmapToBase64Jpeg(bmp))
                 }
                 pendingUltrafix = true
-                val intent = Intent(context, BackgroundGenerationService::class.java).apply {
-                    putExtra("prompt", ultrafixPrompt)
-                    putExtra("negative_prompt", negativePromptField.text)
-                    putExtra("steps", totalSteps)
-                    putExtra("cfg", cfg)
-                    seed.toLongOrNull()?.let { putExtra("seed", it) }
-                    putExtra("width", bmp.width)
-                    putExtra("height", bmp.height)
-                    putExtra("effective_width", bmp.width)
-                    putExtra("effective_height", bmp.height)
-                    putExtra("denoise_strength", ultrafixDenoiseStrength)
-                    putExtra("scheduler", scheduler)
-                    putExtra("ultrafix", true)
-                    putExtra("ultrafix_tile_size", tileSize)
-                    putExtra("backend_host", backendHost)
-                }
-                context.startForegroundService(intent)
+                context.startForegroundService(ultrafixRequest.serviceIntent(context))
                 true
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -2021,20 +2007,32 @@ fun ModelRunScreen(
                                     "ModelRunScreen",
                                     "start generation",
                                 )
-                                generationParamsTmp = GenerationParameters(
-                                    steps = steps.roundToInt(),
-                                    cfg = cfg,
-                                    seed = 0,
-                                    prompt = promptField.text,
-                                    negativePrompt = negativePromptField.text,
-                                    generationTime = "",
-                                    width = currentWidth,
-                                    height = currentHeight,
-                                    runOnCpu = model?.runOnCpu ?: false,
-                                    denoiseStrength = denoiseStrength,
-                                    useOpenCL = useOpenCL,
-                                    scheduler = scheduler,
-                                )
+                                // Keep request values consistent with the
+                                // metadata saved for each image in the batch.
+                                fun requestForBatch(index: Int, hasReferences: Boolean) =
+                                    ModelRunRequest(
+                                        prompt = promptField.text,
+                                        negativePrompt = negativePromptField.text,
+                                        steps = steps.roundToInt(),
+                                        cfg = cfg,
+                                        seed = seed,
+                                        width = currentWidth,
+                                        height = currentHeight,
+                                        effectiveWidth = effectiveWidth,
+                                        effectiveHeight = effectiveHeight,
+                                        denoiseStrength = denoiseStrength,
+                                        useOpenCL = useOpenCL,
+                                        scheduler = scheduler,
+                                        aspectRatio = aspectRatio,
+                                        runOnCpu = model?.runOnCpu ?: false,
+                                        backendHost = backendHost,
+                                        batchIndex = index,
+                                        hasReferenceImages = hasReferences,
+                                        hasImage = selectedImageUri != null && base64EncodeDone,
+                                        hasMask = isInpaintMode && maskBitmap != null,
+                                    )
+
+                                generationParamsTmp = requestForBatch(0, false).historyParameters()
 
                                 Log.d(
                                     "ModelRunScreen",
@@ -2053,78 +2051,22 @@ fun ModelRunScreen(
                                             } else {
                                                 emptyList()
                                             }
-                                        if (editReferencePayloads.isNotEmpty()) {
-                                            withContext(Dispatchers.IO) {
-                                                val json = JSONArray()
-                                                editReferencePayloads.forEach { json.put(it) }
-                                                File(context.filesDir, "dit_references.json")
-                                                    .writeText(json.toString())
-                                            }
-                                        }
+                                        saveModelRunReferences(context.filesDir, editReferencePayloads)
                                     },
                                     submit = { i ->
                                         Log.d("ModelRunScreen", "preparing batch $i")
-                                        generationParamsTmp = GenerationParameters(
-                                            steps = steps.roundToInt(),
-                                            cfg = cfg,
-                                            seed = 0,
-                                            prompt = promptField.text,
-                                            negativePrompt = negativePromptField.text,
-                                            generationTime = "",
-                                            width = currentWidth,
-                                            height = currentHeight,
-                                            runOnCpu = model?.runOnCpu ?: false,
-                                            denoiseStrength = denoiseStrength,
-                                            useOpenCL = useOpenCL,
-                                            scheduler = scheduler,
+                                        val request = requestForBatch(
+                                            index = i,
+                                            hasReferences = editReferencePayloads.isNotEmpty(),
                                         )
-                                        val batchIntent = Intent(
-                                            context,
-                                            BackgroundGenerationService::class.java,
-                                        ).apply {
-                                            putExtra("prompt", promptField.text)
-                                            putExtra(
-                                                "negative_prompt",
-                                                negativePromptField.text,
-                                            )
-                                            putExtra("steps", steps.roundToInt())
-                                            putExtra("cfg", cfg)
-                                            seed.toLongOrNull()
-                                                ?.let { putExtra("seed", it) }
-                                            putExtra("width", currentWidth)
-                                            putExtra("height", currentHeight)
-                                            // Backend now crops progress previews to the
-                                            // visible target rectangle, so the service must
-                                            // decode each preview with the effective dims
-                                            // (target_w/h), not the 1024 canvas size.
-                                            putExtra("effective_width", effectiveWidth)
-                                            putExtra("effective_height", effectiveHeight)
-                                            putExtra(
-                                                "denoise_strength",
-                                                denoiseStrength,
-                                            )
-                                            putExtra("use_opencl", useOpenCL)
-                                            putExtra("scheduler", scheduler)
-                                            putExtra("aspect_ratio", aspectRatio)
-                                            putExtra("batch_index", i)
-                                            putExtra("backend_host", backendHost)
-                                            if (editReferencePayloads.isNotEmpty()) {
-                                                putExtra("has_reference_images", true)
-                                            }
-                                            if (selectedImageUri != null && base64EncodeDone) {
-                                                putExtra("has_image", true)
-                                                if (isInpaintMode && maskBitmap != null) {
-                                                    putExtra("has_mask", true)
-                                                }
-                                            }
-                                        }
+                                        generationParamsTmp = request.historyParameters()
 
                                         Log.d(
                                             "ModelRunScreen",
                                             "start service - batch $i",
                                         )
 
-                                        context.startForegroundService(batchIntent)
+                                        context.startForegroundService(request.serviceIntent(context))
                                         Log.d(
                                             "ModelRunScreen",
                                             "start service sent - batch $i",
