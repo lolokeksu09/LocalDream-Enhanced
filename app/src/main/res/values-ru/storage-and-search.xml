@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="model_storage">Хранилище моделей</string>
+    <string name="model_storage_internal">Хранилище приложения</string>
+    <string name="model_storage_internal_hint">Доступно только Local Dream. Удаляется при удалении приложения.</string>
+    <string name="model_storage_public_hint">Видно в файловых менеджерах; сохраняется после удаления приложения. Другие приложения с разрешением «Доступ ко всем файлам» смогут пользоваться этими моделями без повторной загрузки. Требуется доступ ко всем файлам.</string>
+    <string name="model_storage_public_unsupported">Требуется Android 11 или новее.</string>
+    <string name="model_storage_access_lost">Доступ ко всем файлам отключён, поэтому модели из папки Download недоступны.</string>
+    <string name="model_storage_grant">Предоставить доступ</string>
+    <string name="model_storage_no_access">Доступ ко всем файлам не предоставлен</string>
+    <string name="model_storage_busy">Сначала дождитесь завершения загрузок и генерации</string>
+    <string name="model_storage_move_title">Переместить модели?</string>
+    <string name="model_storage_move_confirm">Модели и эмбеддинги объёмом %1$s будут перемещены в %2$s. Не закрывайте Local Dream до завершения.</string>
+    <string name="model_storage_moving">Перемещение моделей…</string>
+    <string name="model_storage_moved">Модели перемещены</string>
+    <string name="model_storage_move_failed">Не удалось переместить</string>
+    <string name="model_storage_pending">Перемещение в %1$s не завершено, поэтому часть моделей осталась в другом расположении. Выберите место хранения выше, чтобы завершить перенос или вернуть модели обратно.</string>
+    <string name="model_storage_name_clash">Папка Download не различает регистр имён. Следующие имена приведут к перезаписи модели или эмбеддинга: %1$s. Сначала переименуйте или удалите их.</string>
+    <string name="model_storage_conflict">В %1$s уже есть %2$s. Удалите одну из копий и повторите попытку.</string>
+    <string name="model_storage_moving_blocked">Идёт перемещение моделей. Повторите попытку после завершения.</string>
+    <string name="search_models">Поиск моделей</string>
+    <string name="clear_search">Очистить поиск</string>
+    <string name="no_models_match_search">По запросу ничего не найдено.</string>
+</resources>
