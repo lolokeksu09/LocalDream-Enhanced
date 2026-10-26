@@ -1041,6 +1041,11 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    ),
                     placeholder = { Text(stringResource(R.string.search_models)) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null)
