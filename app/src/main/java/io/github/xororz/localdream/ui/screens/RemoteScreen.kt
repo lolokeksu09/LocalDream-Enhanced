@@ -376,6 +376,10 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
 
                                             is RemoteConnectResult.Unreachable ->
                                                 connectError = msgUnreachable
+                                            is RemoteConnectResult.KeyRejected ->
+                                                connectError = context.getString(R.string.remote_pairing_rejected)
+                                            is RemoteConnectResult.IncompatibleHost ->
+                                                connectError = context.getString(R.string.remote_protocol_mismatch)
                                         }
                                     }
                                 },
