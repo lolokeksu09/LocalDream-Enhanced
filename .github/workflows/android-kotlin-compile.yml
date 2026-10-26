@@ -1,8 +1,6 @@
 name: LocalDream preview APK
 
 on:
-  push:
-    branches: ["feature/prompt-presets"]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -129,7 +127,8 @@ jobs:
         run: |
           ./gradlew --no-daemon :app:testBasicDebugUnitTest \
             --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
-            --tests "io.github.xororz.localdream.data.ModelSearchTest"
+            --tests "io.github.xororz.localdream.data.ModelSearchTest" \
+            --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest"
 
       - name: Build preview APK
         shell: bash
