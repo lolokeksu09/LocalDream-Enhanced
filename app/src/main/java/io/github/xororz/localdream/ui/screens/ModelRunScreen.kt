@@ -354,14 +354,25 @@ fun ModelRunScreen(
             ),
         )
     }
-    var cfg by remember { mutableFloatStateOf(GenerationDefaults.GLOBAL.cfg) }
-    var steps by remember { mutableFloatStateOf(GenerationDefaults.GLOBAL.steps) }
-    var seed by remember { mutableStateOf(GenerationDefaults.GLOBAL.seed) }
-    var denoiseStrength by remember { mutableFloatStateOf(GenerationDefaults.GLOBAL.denoiseStrength) }
-    var useOpenCL by remember { mutableStateOf(false) }
-    var batchCounts by remember { mutableIntStateOf(GenerationDefaults.GLOBAL.batchCounts) }
-    var scheduler by remember { mutableStateOf(GenerationDefaults.GLOBAL.scheduler) }
-    var aspectRatio by remember { mutableStateOf(GenerationDefaults.GLOBAL.aspectRatio) }
+    val parameterState = remember {
+        ModelRunParameterState(
+            defaultGenerationSize(
+                model?.usesFixedCanvas == true,
+                model?.runOnCpu == true,
+                model?.isDit == true,
+            ),
+        )
+    }
+    var cfg by parameterState::cfg
+    var steps by parameterState::steps
+    var seed by parameterState::seed
+    var denoiseStrength by parameterState::denoiseStrength
+    var useOpenCL by parameterState::useOpenCL
+    var batchCounts by parameterState::batchCounts
+    var scheduler by parameterState::scheduler
+    var aspectRatio by parameterState::aspectRatio
+    var currentWidth by parameterState::width
+    var currentHeight by parameterState::height
     var showCustomAspectRatioDialog by remember { mutableStateOf(false) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val editReferenceImages = remember { mutableStateListOf<EditReferenceSelection>() }
@@ -411,24 +422,6 @@ fun ModelRunScreen(
         }
     }
 
-    var currentWidth by remember {
-        mutableIntStateOf(
-            defaultGenerationSize(
-                model?.usesFixedCanvas == true,
-                model?.runOnCpu == true,
-                model?.isDit == true,
-            ),
-        )
-    }
-    var currentHeight by remember {
-        mutableIntStateOf(
-            defaultGenerationSize(
-                model?.usesFixedCanvas == true,
-                model?.runOnCpu == true,
-                model?.isDit == true,
-            ),
-        )
-    }
     var availableResolutions by remember { mutableStateOf<List<Resolution>>(emptyList()) }
     var showResolutionChangeDialog by remember { mutableStateOf(false) }
     var pendingResolution by remember { mutableStateOf<Resolution?>(null) }
@@ -628,56 +621,34 @@ fun ModelRunScreen(
         )
     }
 
-    val onStepsChange = remember {
-        { value: Float ->
-            steps = value
-            saveAllFields()
-        }
+    val onStepsChange: (Float) -> Unit = { value ->
+        steps = value
+        saveAllFields()
     }
-    val onCfgChange = remember {
-        { value: Float ->
-            cfg = value
-            saveAllFields()
-        }
+    val onCfgChange: (Float) -> Unit = { value ->
+        cfg = value
+        saveAllFields()
     }
-    val onSizeChange = remember {
-        { value: Float ->
-            val rounded = (value / 64).roundToInt() * 64
-            val newSize = rounded.coerceIn(128, 512)
-            currentWidth = newSize
-            currentHeight = newSize
-            saveAllFields()
-        }
+    val onSizeChange: (Float) -> Unit = { value ->
+        parameterState.setLegacySquareSize(value)
+        saveAllFields()
     }
-    // DiT models take the requested size directly, so width and height are two
-    // plain controls; aspectRatio is kept in step for the img2img crop and for
-    // whatever reads it back from history.
-    val onDitWidthChange = remember {
-        { value: Float ->
-            currentWidth = snapDitSize(value)
-            aspectRatio = inferAspectRatioString(currentWidth, currentHeight)
-            saveAllFields()
-        }
+    // DiT width and height synchronize the aspect-ratio field.
+    val onDitWidthChange: (Float) -> Unit = { value ->
+        parameterState.setDitWidth(value)
+        saveAllFields()
     }
-    val onDitHeightChange = remember {
-        { value: Float ->
-            currentHeight = snapDitSize(value)
-            aspectRatio = inferAspectRatioString(currentWidth, currentHeight)
-            saveAllFields()
-        }
+    val onDitHeightChange: (Float) -> Unit = { value ->
+        parameterState.setDitHeight(value)
+        saveAllFields()
     }
-    val onDenoiseStrengthChange =
-        remember {
-            { value: Float ->
-                denoiseStrength = value
-                saveAllFields()
-            }
-        }
-    val onSeedChange = remember {
-        { value: String ->
-            seed = value
-            saveAllFields()
-        }
+    val onDenoiseStrengthChange: (Float) -> Unit = { value ->
+        denoiseStrength = value
+        saveAllFields()
+    }
+    val onSeedChange: (String) -> Unit = { value ->
+        seed = value
+        saveAllFields()
     }
     promptField.onTextCommitted = { saveAllFields() }
     negativePromptField.onTextCommitted = { saveAllFields() }
@@ -685,11 +656,9 @@ fun ModelRunScreen(
     PromptTokenCountEffect(promptField, backendReady = backendReady, backendHost = backendHost)
     PromptTokenCountEffect(negativePromptField, backendReady = backendReady, backendHost = backendHost)
 
-    val onBatchCountsChange = remember {
-        { value: Float ->
-            batchCounts = value.roundToInt().coerceIn(1, 10)
-            saveAllFields()
-        }
+    val onBatchCountsChange: (Float) -> Unit = { value ->
+        parameterState.setBatchCount(value)
+        saveAllFields()
     }
 
     fun processSelectedImage(uri: Uri) {
@@ -1356,65 +1325,20 @@ fun ModelRunScreen(
     LaunchedEffect(modelId, model) {
         if (!hasInitialized && model != null) {
             val prefs = generationPreferences.getPreferences(modelId).first()
-            val isFirstRun = !prefs.hasSaved
-            val defaults = model.defaults
-
-            promptField.replaceText(if (isFirstRun) defaults.prompt else prefs.prompt)
-            negativePromptField.replaceText(
-                if (isFirstRun) defaults.negativePrompt else prefs.negativePrompt,
+            val restored = resolveModelRunSettings(
+                prefs = prefs,
+                defaults = model.defaults,
+                usesFixedCanvas = model.usesFixedCanvas,
+                runOnCpu = model.runOnCpu,
+                isDit = model.isDit,
+                useImg2img = useImg2img,
+                isRemote = isRemote,
+                remoteResolutions = if (isRemote) remoteRepository.resolutionsFor(modelId) else emptyList(),
             )
-
-            steps = if (isFirstRun) defaults.steps else prefs.steps
-            cfg = if (isFirstRun) defaults.cfg else prefs.cfg
-            seed = prefs.seed
-            denoiseStrength = if (isFirstRun) defaults.denoiseStrength else prefs.denoiseStrength
-            useOpenCL = prefs.useOpenCL
-            batchCounts = prefs.batchCounts
-            scheduler = if (isFirstRun) defaults.scheduler else prefs.scheduler
-            // Without img2img the backend has no VAE encoder, so a stored
-            // non-1:1 ratio would silently fall back to 1024x1024 anyway.
-            aspectRatio = if (useImg2img) prefs.aspectRatio else "1:1"
-
-            currentWidth = when {
-                model.usesFixedCanvas -> 1024
-
-                prefs.width == -1 -> defaultGenerationSize(
-                    usesFixedCanvas = false,
-                    runOnCpu = model.runOnCpu,
-                    isDit = model.isDit,
-                )
-
-                else -> if (model.isDit) snapDitSize(prefs.width.toFloat()) else prefs.width
-            }
-            currentHeight = when {
-                model.usesFixedCanvas -> 1024
-
-                prefs.height == -1 -> defaultGenerationSize(
-                    usesFixedCanvas = false,
-                    runOnCpu = model.runOnCpu,
-                    isDit = model.isDit,
-                )
-
-                else -> if (model.isDit) snapDitSize(prefs.height.toFloat()) else prefs.height
-            }
-
-            // Preferences are keyed by bare modelId and shared with a local
-            // model of the same id, so the saved resolution may be a patch
-            // the HOST doesn't have (e.g. 768 saved locally, host only has
-            // 512). Sending it would make the host silently fall back to 512
-            // while this screen still generates at 768 - shape mismatch.
-            if (isRemote && !model.usesFixedCanvas && !model.runOnCpu && !model.isDit) {
-                val allowed = listOf(Resolution(512, 512)) +
-                    remoteRepository.resolutionsFor(modelId)
-                if (allowed.none { it.width == currentWidth && it.height == currentHeight }) {
-                    currentWidth = 512
-                    currentHeight = 512
-                }
-            }
-
-            if (isFirstRun ||
-                (model.isDit && (prefs.width != currentWidth || prefs.height != currentHeight))
-            ) {
+            promptField.replaceText(restored.prompt)
+            negativePromptField.replaceText(restored.negativePrompt)
+            parameterState.restore(restored)
+            if (restored.needsPersist) {
                 saveAllFields()
             }
 
