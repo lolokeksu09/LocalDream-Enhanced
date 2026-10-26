@@ -176,6 +176,7 @@ jobs:
             --tests "io.github.xororz.localdream.ui.screens.ModelRunDisplayStateTest" \
             --tests "io.github.xororz.localdream.ui.screens.ModelRunHistorySelectionTest" \
             --tests "io.github.xororz.localdream.ui.screens.ModelRunHistoryBulkControllerTest" \
+            --tests "io.github.xororz.localdream.ui.screens.ModelRunSettingsCoordinatorTest" \
             --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
             --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest" \
             --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest" \

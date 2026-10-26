@@ -207,6 +207,13 @@ fun ModelRunScreen(
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val generationPreferences = remember { GenerationPreferences(context) }
+    val settingsCoordinator = remember(scope, generationPreferences) {
+        ModelRunSettingsCoordinator(
+            scope = scope,
+            saveMain = { snapshot -> snapshot.write(generationPreferences) },
+            saveUltrafix = { snapshot -> snapshot.write(generationPreferences) },
+        )
+    }
     val coroutineScope = rememberCoroutineScope()
     val batchController = remember(coroutineScope) { ModelRunBatchController(coroutineScope) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -528,7 +535,6 @@ fun ModelRunScreen(
             ?: flowOf(null)
     }.collectAsState(initial = null)
 
-    var saveAllJob: Job? by remember { mutableStateOf(null) }
 
     // Upscaler related states
     var showUpscalerDialog by remember { mutableStateOf(false) }
@@ -555,7 +561,6 @@ fun ModelRunScreen(
     var ultrafixQualityDenoise by remember {
         mutableStateOf(GenerationDefaults.GLOBAL.ultrafixQualityDenoise)
     }
-    var ultrafixSaveJob: Job? by remember { mutableStateOf(null) }
     LaunchedEffect(Unit) {
         ultrafixSteps = generationPreferences.observeUltrafixSteps(modelId).first()
         val maxDenoiseSteps =
@@ -593,10 +598,8 @@ fun ModelRunScreen(
     }
 
     fun saveAllFields() {
-        saveAllJob?.cancel()
-        saveAllJob = scope.launch(Dispatchers.IO) {
-            delay(1000)
-            generationPreferences.saveAllFields(
+        settingsCoordinator.scheduleMain(
+            ModelRunSettingsSnapshot(
                 modelId = modelId,
                 prompt = promptField.text,
                 negativePrompt = negativePromptField.text,
@@ -610,21 +613,19 @@ fun ModelRunScreen(
                 batchCounts = batchCounts,
                 scheduler = scheduler,
                 aspectRatio = aspectRatio,
-            )
-        }
+            ),
+        )
     }
 
     fun saveUltrafixParams() {
-        ultrafixSaveJob?.cancel()
-        ultrafixSaveJob = scope.launch(Dispatchers.IO) {
-            delay(500)
-            generationPreferences.saveUltrafixParams(
-                modelId,
-                ultrafixSteps,
-                ultrafixDenoiseSteps,
-                ultrafixQualityDenoise,
-            )
-        }
+        settingsCoordinator.scheduleUltrafix(
+            ModelRunUltrafixSnapshot(
+                modelId = modelId,
+                steps = ultrafixSteps,
+                denoiseSteps = ultrafixDenoiseSteps,
+                qualityDenoise = ultrafixQualityDenoise,
+            ),
+        )
     }
 
     val onStepsChange = remember {
@@ -1290,7 +1291,7 @@ fun ModelRunScreen(
             coroutineScope.launch {
                 pagerState.scrollToPage(0)
             }
-            saveAllJob?.cancel()
+            settingsCoordinator.cancel()
         } catch (e: Exception) {
             Log.e("ModelRunScreen", "error", e)
         }
@@ -1738,29 +1739,32 @@ fun ModelRunScreen(
                 promptField.replaceText(defaults.prompt)
                 negativePromptField.replaceText(defaults.negativePrompt)
                 denoiseStrength = defaults.denoiseStrength
-                scope.launch(Dispatchers.IO) {
-                    generationPreferences.saveAllFields(
-                        modelId = modelId,
-                        prompt = defaults.prompt,
-                        negativePrompt = defaults.negativePrompt,
-                        steps = defaults.steps,
-                        cfg = defaults.cfg,
-                        seed = defaults.seed,
-                        width = defaultGenerationSize(
-                            model?.usesFixedCanvas == true,
-                            model?.runOnCpu == true,
-                            model?.isDit == true,
+                // Reset must win over a pending delayed save of the old values.
+                scope.launch {
+                    settingsCoordinator.writeMainNow(
+                        ModelRunSettingsSnapshot(
+                            modelId = modelId,
+                            prompt = defaults.prompt,
+                            negativePrompt = defaults.negativePrompt,
+                            steps = defaults.steps,
+                            cfg = defaults.cfg,
+                            seed = defaults.seed,
+                            width = defaultGenerationSize(
+                                model?.usesFixedCanvas == true,
+                                model?.runOnCpu == true,
+                                model?.isDit == true,
+                            ),
+                            height = defaultGenerationSize(
+                                model?.usesFixedCanvas == true,
+                                model?.runOnCpu == true,
+                                model?.isDit == true,
+                            ),
+                            denoiseStrength = defaults.denoiseStrength,
+                            useOpenCL = useOpenCL,
+                            batchCounts = defaults.batchCounts,
+                            scheduler = defaults.scheduler,
+                            aspectRatio = defaults.aspectRatio,
                         ),
-                        height = defaultGenerationSize(
-                            model?.usesFixedCanvas == true,
-                            model?.runOnCpu == true,
-                            model?.isDit == true,
-                        ),
-                        denoiseStrength = defaults.denoiseStrength,
-                        useOpenCL = useOpenCL,
-                        batchCounts = defaults.batchCounts,
-                        scheduler = defaults.scheduler,
-                        aspectRatio = defaults.aspectRatio,
                     )
                 }
                 showResetConfirmDialog = false
