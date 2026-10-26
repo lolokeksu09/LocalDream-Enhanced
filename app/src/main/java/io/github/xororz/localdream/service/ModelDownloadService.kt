@@ -17,12 +17,15 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.Locale
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -144,11 +147,28 @@ class ModelDownloadService : Service() {
                     _downloadState.value = DownloadState.Downloading(modelId, 0f, 0, 0)
 
                     val tempDir = ModelStorage.tempDownloadsDir(this@ModelDownloadService)
-
-                    if (tempDir.exists()) {
-                        tempDir.deleteRecursively()
+                    if (!tempDir.isDirectory && !tempDir.mkdirs()) {
+                        throw IOException("Cannot create model download scratch directory")
                     }
-                    tempDir.mkdirs()
+
+                    // Recover an interrupted ZIP replacement before cleaning scratch files.
+                    // Never delete *_previous here: it may be the only remaining copy.
+                    if (modelType == TYPE_SD && isZip) {
+                        val modelDir = File(getModelsDir(), modelId)
+                        val backupDir = File(tempDir, "${modelId}_previous")
+                        ModelArchiveInstaller.recover(modelDir, backupDir)
+                    }
+
+                    val scratchFiles = tempDir.listFiles()
+                        ?: throw IOException("Cannot read model download scratch directory")
+                    scratchFiles.filter { file ->
+                        (file.isFile && file.name.endsWith(".tmp")) ||
+                            (file.isDirectory && file.name.endsWith("_extract"))
+                    }.forEach { file ->
+                        if (!file.deleteRecursively()) {
+                            throw IOException("Cannot clear stale download data: ${file.name}")
+                        }
+                    }
 
                     if (modelType == TYPE_MULTI_FILE) {
                         downloadPackageFiles(modelId, modelName, fileUrl, fileNames, markerFile)
@@ -228,6 +248,8 @@ class ModelDownloadService : Service() {
                         stopSelf()
                     }
                 } catch (e: CancellationException) {
+                    tempFile?.delete()
+                    extractTempDir?.deleteRecursively()
                     discardPartialFiles(modelType, modelId)
                     // Cancellation (service reclaimed, a new download started, or
                     // explicit cancel) is not a download failure: re-throw so it is
@@ -413,17 +435,31 @@ class ModelDownloadService : Service() {
     }
 
     private suspend fun unzipFile(zipFile: File, destDir: File) = withContext(Dispatchers.IO) {
+        val coroutineContext = currentCoroutineContext()
+        val seenNames = mutableSetOf<String>()
         ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
             var entry = zis.nextEntry
 
             while (entry != null) {
+                coroutineContext.ensureActive()
                 if (!entry.isDirectory) {
+                    // Model archives are intentionally flattened into one directory.
+                    // Reject collisions rather than silently overwriting another entry.
                     val fileName = entry.name.substringAfterLast('/')
                     if (fileName.isNotEmpty() && !fileName.startsWith(".") && !fileName.startsWith("__MACOSX")) {
-                        val file = File(destDir, fileName)
+                        if (!seenNames.add(fileName.lowercase(Locale.ROOT))) {
+                            throw IOException("Archive contains duplicate file name: $fileName")
+                        }
 
+                        val file = File(destDir, fileName)
                         java.io.BufferedOutputStream(FileOutputStream(file)).use { output ->
-                            zis.copyTo(output)
+                            val buffer = ByteArray(32 * 1024)
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val count = zis.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
                         }
                     }
                 }

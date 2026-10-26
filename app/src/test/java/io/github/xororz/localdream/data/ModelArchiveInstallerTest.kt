@@ -30,6 +30,22 @@ class ModelArchiveInstallerTest {
     }
 
     @Test
+    fun restoresPreviousModelBeforeRejectingEmptyExtraction() {
+        val stagingDir = tmp.newFolder("staging")
+        val modelsDir = tmp.newFolder("models")
+        val modelDir = File(modelsDir, "model")
+        val backupDir = tmp.newFolder("backup")
+        File(backupDir, "weights.bin").writeText("known-good-model")
+
+        assertThrows(IOException::class.java) {
+            ModelArchiveInstaller.install(stagingDir, modelDir, backupDir)
+        }
+
+        assertEquals("known-good-model", File(modelDir, "weights.bin").readText())
+        assertFalse(backupDir.exists())
+    }
+
+    @Test
     fun validExtractionReplacesModelAndRemovesBackup() {
         val stagingDir = tmp.newFolder("staging")
         val modelDir = tmp.newFolder("model")

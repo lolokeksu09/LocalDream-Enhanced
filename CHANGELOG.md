@@ -12,7 +12,8 @@ This fork tracks upstream Local Dream and documents only changes introduced here
 ### Fixed
 - ZIP-based model updates now extract into staging before touching the installed model.
 - A failed or empty extraction leaves the previously installed model in place.
-- Model directory replacement now checks rename results, rolls back when installation fails, and reports if an old backup could not be cleaned up.
+- Model directory replacement now recovers the previous version after an interrupted install instead of deleting the only backup on the next download.
+- Download cancellation now removes temporary archive/extraction files; ZIP extraction checks cancellation while copying and rejects duplicate flattened filenames.
 - CI runs the focused archive-install regression tests before producing the preview APK.
 - Fork attribution and license notes in README.
 

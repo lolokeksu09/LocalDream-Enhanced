@@ -14,17 +14,35 @@ import java.io.IOException
  * not be removed. The installed model is still usable in that case.
  */
 internal object ModelArchiveInstaller {
+    /**
+     * Repairs an interrupted replacement before another download starts.
+     * If the model directory is missing, the backup is the only known-good copy
+     * and must be restored before any scratch cleanup can remove other files.
+     */
+    @Throws(IOException::class)
+    fun recover(modelDir: File, backupDir: File) {
+        if (!backupDir.exists()) return
+
+        if (modelDir.exists()) {
+            if (!backupDir.deleteRecursively()) {
+                throw IOException("Cannot clear stale model backup: ${backupDir.absolutePath}")
+            }
+        } else if (!backupDir.renameTo(modelDir)) {
+            throw IOException("Cannot restore previous model from ${backupDir.absolutePath}")
+        }
+    }
+
     @Throws(IOException::class)
     fun install(stagingDir: File, modelDir: File, backupDir: File): Boolean {
-        val extractedFiles = stagingDir.listFiles()
-            ?.filter { it.isFile && it.length() > 0L }
-            .orEmpty()
-        if (extractedFiles.isEmpty()) {
-            throw IOException("Archive contains no non-empty model files")
-        }
+        // Restore a previous version first, even when this extraction is invalid.
+        recover(modelDir, backupDir)
 
-        if (backupDir.exists() && !backupDir.deleteRecursively()) {
-            throw IOException("Cannot clear the previous model backup")
+        if (!stagingDir.isDirectory) {
+            throw IOException("Model extraction directory is missing")
+        }
+        val hasPayload = stagingDir.walkTopDown().any { it.isFile && it.length() > 0L }
+        if (!hasPayload) {
+            throw IOException("Archive contains no non-empty model files")
         }
 
         val hadPreviousModel = modelDir.exists()
