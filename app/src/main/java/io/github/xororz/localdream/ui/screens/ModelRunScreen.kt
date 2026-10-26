@@ -2014,7 +2014,17 @@ fun ModelRunScreen(
                                         color = MaterialTheme.colorScheme.onPrimary,
                                     )
                                 } else {
-                                    Text(stringResource(R.string.generate_image))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Text(stringResource(R.string.generate_image))
+                                    }
                                 }
                             }
                         }
@@ -2084,11 +2094,20 @@ fun ModelRunScreen(
                             progress = progress,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        Text(
-                            "${(progress * 100).toInt()}%",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(onClick = { showInterruptDialog = true }) {
+                                Text(stringResource(R.string.cancel))
+                            }
+                        }
                         intermediateBitmap?.let { bitmap ->
                             Spacer(modifier = Modifier.height(8.dp))
                             Card(
