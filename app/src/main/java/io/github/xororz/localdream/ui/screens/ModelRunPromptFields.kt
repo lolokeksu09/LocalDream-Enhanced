@@ -53,8 +53,7 @@ internal fun ModelRunPromptFields(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
-            selected = false,
+        OutlinedButton(
             onClick = {
                 onApplyTemplates(
                     "masterpiece, high quality portrait, detailed face, soft cinematic lighting, sharp focus",
@@ -63,8 +62,7 @@ internal fun ModelRunPromptFields(
             },
             label = { Text(stringResource(R.string.quick_preset_portrait)) },
         )
-        FilterChip(
-            selected = false,
+        OutlinedButton(
             onClick = {
                 onApplyTemplates(
                     "masterpiece, anime illustration, expressive eyes, detailed hair, vibrant colors, clean linework",
@@ -73,8 +71,7 @@ internal fun ModelRunPromptFields(
             },
             label = { Text(stringResource(R.string.quick_preset_anime)) },
         )
-        FilterChip(
-            selected = false,
+        OutlinedButton(
             onClick = {
                 onApplyTemplates(
                     "highly detailed realistic photograph, natural lighting, realistic skin texture, sharp focus",
