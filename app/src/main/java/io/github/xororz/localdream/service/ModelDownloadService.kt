@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import io.github.xororz.localdream.R
 import io.github.xororz.localdream.data.Model
 import io.github.xororz.localdream.data.ModelStorage
+import io.github.xororz.localdream.data.ModelArchiveInstaller
 import io.github.xororz.localdream.utils.Http
 import java.io.File
 import java.io.FileOutputStream
@@ -166,24 +167,25 @@ class ModelDownloadService : Service() {
                     TYPE_SD -> {
                         if (isZip) {
                             val modelDir = File(getModelsDir(), modelId)
+                            val stagingDir = File(tempDir, "${modelId}_extract")
+                            val backupDir = File(tempDir, "${modelId}_previous")
 
-                            if (modelDir.exists()) {
-                                modelDir.deleteRecursively()
+                            if (stagingDir.exists() && !stagingDir.deleteRecursively()) {
+                                throw IOException("Cannot clear the model extraction directory")
                             }
-                            modelDir.mkdirs()
-
-                            extractTempDir = File(tempDir, "${modelId}_extract")
-                            extractTempDir.mkdirs()
+                            if (!stagingDir.mkdirs() && !stagingDir.isDirectory) {
+                                throw IOException("Cannot create the model extraction directory")
+                            }
+                            extractTempDir = stagingDir
 
                             _downloadState.value = DownloadState.Extracting(modelId)
                             updateNotification(modelName, 0f, isExtracting = true)
 
-                            unzipFile(tempFile, extractTempDir)
-
-                            extractTempDir.listFiles()?.forEach { file ->
-                                file.renameTo(File(modelDir, file.name))
+                            unzipFile(tempFile, stagingDir)
+                            val backupRemoved = ModelArchiveInstaller.install(stagingDir, modelDir, backupDir)
+                            if (!backupRemoved) {
+                                Log.w(TAG, "New model installed; previous backup remains at ${backupDir.absolutePath}")
                             }
-                            extractTempDir.delete()
                             extractTempDir = null
                         }
                     }
