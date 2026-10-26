@@ -130,6 +130,7 @@ class RemoteRepository private constructor(private val context: Context) {
 
         val client = RemoteApiClient(host, port, key)
         val info = client.fetchInfo() ?: return RemoteConnectResult.Unreachable
+        if (info.protocol != RemoteProtocol.PROTOCOL_VERSION) return RemoteConnectResult.Unreachable
         val catalog = client.fetchCatalog() ?: return RemoteConnectResult.Unreachable
 
         val name = info.deviceName.ifEmpty { host }
