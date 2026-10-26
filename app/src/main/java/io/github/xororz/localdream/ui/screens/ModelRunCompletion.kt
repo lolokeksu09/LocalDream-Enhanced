@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 internal fun completeModelRunParameters(
     requested: GenerationParameters,
     resultSeed: Long?,
-    generationTime: String,
+    generationTime: String?,
     resultWidth: Int,
     resultHeight: Int,
     runOnCpu: Boolean,
