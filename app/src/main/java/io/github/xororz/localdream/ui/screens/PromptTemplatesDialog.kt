@@ -1,10 +1,6 @@
 package io.github.xororz.localdream.ui.screens
 
 import android.content.Context
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +29,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.xororz.localdream.R
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 
 private data class SavedPromptTemplate(
     val name: String,
