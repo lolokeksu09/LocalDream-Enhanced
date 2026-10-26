@@ -136,6 +136,16 @@ internal fun PromptTemplatesDialog(
     var templateName by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<SavedPromptTemplate?>(null) }
+    var templateQuery by remember { mutableStateOf("") }
+    val filteredTemplates = remember(templates, templateQuery) {
+        val query = templateQuery.trim()
+        if (query.isEmpty()) templates
+        else templates.filter { template ->
+            template.name.contains(query, ignoreCase = true) ||
+                template.prompt.contains(query, ignoreCase = true) ||
+                template.negativePrompt.contains(query, ignoreCase = true)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -196,9 +206,23 @@ internal fun PromptTemplatesDialog(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
+                if (templates.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = templateQuery,
+                        onValueChange = { templateQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.prompt_template_search_hint)) },
+                        singleLine = true,
+                    )
+                }
                 if (templates.isEmpty()) {
                     Text(
                         stringResource(R.string.no_prompt_templates),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else if (filteredTemplates.isEmpty()) {
+                    Text(
+                        stringResource(R.string.prompt_template_no_matches),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
@@ -206,7 +230,7 @@ internal fun PromptTemplatesDialog(
                         modifier = Modifier.heightIn(max = 300.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(templates, key = SavedPromptTemplate::name) { template ->
+                        items(filteredTemplates, key = SavedPromptTemplate::name) { template ->
                             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                                 Column(
                                     modifier = Modifier.padding(12.dp),
