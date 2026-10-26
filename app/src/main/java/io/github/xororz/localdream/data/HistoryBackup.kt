@@ -115,12 +115,22 @@ object HistoryBackup {
     ): BackupImportResult = withContext(Dispatchers.IO) {
         val dao = AppDatabase.get(context).historyDao()
 
-        // Pass 1: find and parse the manifest. Our own zips put it first, but
-        // scan the whole archive so re-zipped backups still import.
+        // Pass 1: scan for the manifest with strict decompression limits.
+        // Repacked ZIP archives may place it after image entries.
         val manifest = openZip(context, uri).use { zip ->
-            generateSequence { zip.nextEntry }
-                .firstOrNull { it.name == MANIFEST_NAME }
-                ?.let { JSONObject(zip.readBytes().toString(Charsets.UTF_8)) }
+            val budget = BackupZipLimits.Budget()
+            var found: JSONObject? = null
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                budget.entry()
+                if (entry.name == MANIFEST_NAME) {
+                    val bytes = BackupZipLimits.readManifest(zip, budget)
+                    found = JSONObject(bytes.toString(Charsets.UTF_8))
+                    break
+                }
+                BackupZipLimits.skipEntry(zip, budget)
+            }
+            found
         } ?: throw BackupFormatException("manifest.json not found")
 
         if (manifest.optString("format") != FORMAT) {
@@ -131,6 +141,9 @@ object HistoryBackup {
         }
 
         val itemsJson = manifest.optJSONArray("items") ?: JSONArray()
+        if (itemsJson.length() > BackupZipLimits.MAX_ENTRIES) {
+            throw BackupFormatException("too many history entries")
+        }
         val pending = LinkedHashMap<String, HistoryEntity>()
         var duplicates = 0
         var invalid = 0
@@ -155,10 +168,30 @@ object HistoryBackup {
         val orphanModelIds = mutableSetOf<String>()
         if (total > 0) {
             openZip(context, uri).use { zip ->
-                generateSequence { zip.nextEntry }.forEach { entry ->
+                val budget = BackupZipLimits.Budget()
+                val seenNames = HashSet<String>()
+                while (true) {
+                    val entry = zip.nextEntry ?: break
                     ensureActive()
-                    val entity = pending.remove(entry.name) ?: return@forEach
-                    writeImage(zip, File(context.filesDir, entity.imagePath))
+                    budget.entry()
+                    if (!seenNames.add(entry.name)) {
+                        throw BackupFormatException("duplicate ZIP entry")
+                    }
+                    if (entry.name == MANIFEST_NAME) {
+                        BackupZipLimits.skipEntry(zip, budget, BackupZipLimits.MAX_MANIFEST_BYTES)
+                        continue
+                    }
+                    if (!imagePathRegex.matches(entry.name)) {
+                        throw BackupFormatException("unexpected file in backup")
+                    }
+                    val entity = pending.remove(entry.name)
+                    if (entity == null) {
+                        // A duplicate image from an earlier import is valid,
+                        // but must still respect the decompression limits.
+                        BackupZipLimits.skipEntry(zip, budget)
+                        continue
+                    }
+                    writeImage(zip, File(context.filesDir, entity.imagePath), budget)
                     dao.insert(entity)
                     imported++
                     if (entity.modelId !in installedModelIds) {
@@ -178,11 +211,11 @@ object HistoryBackup {
         return ZipInputStream(input.buffered())
     }
 
-    private fun writeImage(source: InputStream, dest: File) {
+    private fun writeImage(source: InputStream, dest: File, budget: BackupZipLimits.Budget) {
         dest.parentFile?.mkdirs()
         val tmp = File(dest.parentFile, "${dest.name}.part")
         try {
-            tmp.outputStream().use { source.copyTo(it) }
+            tmp.outputStream().use { BackupZipLimits.copyImage(source, it, budget) }
             if (!tmp.renameTo(dest)) {
                 throw IOException("Failed to move ${tmp.name} into place")
             }

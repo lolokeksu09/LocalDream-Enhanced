@@ -5,6 +5,7 @@ import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.ServerSocket
+import javax.net.ssl.SSLServerSocketFactory
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
@@ -21,12 +22,13 @@ import org.json.JSONObject
  *
  * Every endpoint except /info requires the current session's 128-bit key.
  * The generation port is separately guarded by RemoteGenerationGateway.
- * Transport is plaintext on LAN: use only trusted networks.
+ * Both control and generation ports use TLS with a pinned certificate.
  */
 class RemoteHostServer(
     private val port: Int,
     private val handler: Handler,
     private val sessionKey: String,
+    private val tlsFactory: SSLServerSocketFactory,
 ) {
     interface Handler {
         fun info(): JSONObject
@@ -48,7 +50,7 @@ class RemoteHostServer(
 
     @Throws(IOException::class)
     fun start() {
-        val socket = ServerSocket(port)
+        val socket = tlsFactory.createServerSocket(port)
         serverSocket = socket
         running = true
         workers = Executors.newFixedThreadPool(WORKER_COUNT) { r ->

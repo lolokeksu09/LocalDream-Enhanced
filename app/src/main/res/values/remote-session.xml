@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="remote_pairing_key_host">Pairing key (keep private)</string>
-    <string name="remote_pairing_key_hint">On the controller, enter this key along with the host address. The key changes whenever host mode restarts. LAN traffic is not encrypted.</string>
+    <string name="remote_pairing_key_hint">On the controller, enter this key along with the host address. The key changes whenever host mode restarts. Both LAN ports use TLS and a certificate fingerprint included in this pairing code.</string>
     <string name="remote_pairing_key_input">Pairing key from host</string>
     <string name="remote_pairing_rejected">Pairing failed. Check the key and make sure host mode is still running.</string>
     <string name="remote_protocol_mismatch">Update Local Dream on both devices. The other device uses an incompatible remote protocol.</string>
+    <string name="remote_repair">Update pairing code</string>
 </resources>

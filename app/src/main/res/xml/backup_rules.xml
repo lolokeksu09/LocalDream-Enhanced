@@ -8,4 +8,6 @@
 <full-backup-content>
     <!-- Where models are kept is a fact about this device (ModelStorage). -->
     <exclude domain="sharedpref" path="model_storage.xml"/>
+    <exclude domain="sharedpref" path="app_prefs.xml"/>
+    <exclude domain="sharedpref" path="remote_session_secrets.xml"/>
 </full-backup-content>

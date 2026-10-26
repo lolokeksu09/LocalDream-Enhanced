@@ -26,6 +26,7 @@ import io.github.xororz.localdream.remote.RemoteModelDefaults
 import io.github.xororz.localdream.remote.RemoteModelInfo
 import io.github.xororz.localdream.remote.RemoteProtocol
 import io.github.xororz.localdream.remote.RemotePairingKey
+import io.github.xororz.localdream.remote.RemoteTls
 import io.github.xororz.localdream.remote.RemoteUpscalerInfo
 import java.io.File
 import java.io.IOException
@@ -74,12 +75,21 @@ class RemoteHostService : Service() {
             // New 128-bit key on every host-mode start: old controllers must
             // explicitly pair again when the host session is restarted.
             val key = RemotePairingKey.generate()
+            val identity = try {
+                RemoteTls.hostIdentity()
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to initialize TLS identity", e)
+                updateState(running = false)
+                stopSelf()
+                return START_NOT_STICKY
+            }
             val newServer = RemoteHostServer(
                 port = RemoteProtocol.CONTROL_PORT,
                 handler = ApiHandler(),
                 sessionKey = key,
+                tlsFactory = identity.factory,
             )
-            val newGateway = RemoteGenerationGateway(key)
+            val newGateway = RemoteGenerationGateway(key, identity.factory)
             try {
                 newGateway.start()
                 newServer.start()
@@ -93,7 +103,7 @@ class RemoteHostService : Service() {
             }
             server = newServer
             gateway = newGateway
-            StateHolder._pairingCode.value = key
+            StateHolder._pairingCode.value = key + "." + identity.fingerprint
             updateState(running = true)
             // Bring BackendService up as a foreground service now, while the
             // app is still visible (the user just tapped the button). Later

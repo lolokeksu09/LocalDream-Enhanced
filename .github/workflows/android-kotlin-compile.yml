@@ -171,6 +171,9 @@ jobs:
             --tests "io.github.xororz.localdream.data.ModelSearchTest" \
             --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest" \
             --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
+            --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest" \
+            --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest" \
+            --tests "io.github.xororz.localdream.data.BackupZipLimitsTest" \
             :app:assembleBasicDebug
           APK_PATH="$(find app/build/outputs/apk/basic/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
           if [[ -z "$APK_PATH" ]]; then

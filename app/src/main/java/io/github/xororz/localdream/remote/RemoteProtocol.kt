@@ -10,7 +10,7 @@ import org.json.JSONObject
  *  - CONTROL_PORT: JSON control API, authenticated except for /info.
  *    (model catalog, model activation, backend status).
  *  - GENERATION_PORT: native backend bound to loopback only.
- *  - GATEWAY_PORT: header-authenticated streaming gateway for remote generation.
+ *  - GATEWAY_PORT: certificate-pinned TLS streaming gateway for remote generation.
  *    The same application HTTP client is used for local and remote inference.
  */
 object RemoteProtocol {
@@ -18,7 +18,7 @@ object RemoteProtocol {
     const val GENERATION_PORT = 8081
     const val GATEWAY_PORT = 8082
     const val AUTH_HEADER = "X-LocalDream-Key"
-    const val PROTOCOL_VERSION = 2
+    const val PROTOCOL_VERSION = 3
     const val APP_ID = "localdream"
 
     const val PATH_INFO = "/info"

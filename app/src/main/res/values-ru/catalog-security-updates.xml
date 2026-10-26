@@ -6,7 +6,7 @@
     <string name="catalog_filter_pinned">Закреплённые</string>
     <string name="prompt_template_search_hint">Поиск сохранённых шаблонов</string>
     <string name="prompt_template_no_matches">По запросу шаблоны не найдены.</string>
-    <string name="remote_lan_warning_title">Трафик локальной сети не зашифрован</string>
-    <string name="remote_lan_warning_body">Управление и генерация требуют ключ сопряжения длиной 128 бит. Подключение по HTTP не зашифровано, поэтому включайте режим сервера только в доверенной частной сети.</string>
+    <string name="remote_lan_warning_title">Зашифрованное сопряжение</string>
+    <string name="remote_lan_warning_body">Управление и генерация требуют ключ сопряжения длиной 128 бит. Управление и генерация защищены TLS с проверкой сертификата. Не передавайте код сопряжения посторонним.</string>
     <string name="remote_lan_warning_continue">Всё равно включить</string>
 </resources>

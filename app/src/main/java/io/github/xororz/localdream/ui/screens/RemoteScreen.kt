@@ -97,6 +97,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
 
     var hostInput by remember { mutableStateOf("") }
     var pairingInput by remember { mutableStateOf("") }
+    var showRePair by remember { mutableStateOf(false) }
     var connecting by remember { mutableStateOf(false) }
     var connectError by remember { mutableStateOf<String?>(null) }
 
@@ -299,7 +300,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         val connection = remoteRepository.connection
-                        if (connection != null) {
+                        if (connection != null && !showRePair) {
                             Text(
                                 stringResource(
                                     R.string.remote_connected_to,
@@ -332,6 +333,14 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                     Text(stringResource(R.string.remote_disconnect))
                                 }
                             }
+                            TextButton(
+                                onClick = {
+                                    hostInput = connection.host + ":" + connection.port
+                                    pairingInput = ""
+                                    showRePair = true
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(stringResource(R.string.remote_repair)) }
                         } else {
                             OutlinedTextField(
                                 value = hostInput,
@@ -366,6 +375,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                         connecting = false
                                         when (result) {
                                             is RemoteConnectResult.Success -> {
+                                                showRePair = false
                                                 Toast.makeText(
                                                     context,
                                                     msgConnectedTo.format(result.deviceName),
