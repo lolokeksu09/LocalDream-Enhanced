@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 
 /** Shared client with pinned TLS for the active LAN generation gateway. */
 object Http {
+    /** Pinned client for LAN/remote backend calls. */
     val client: OkHttpClient by lazy {
         RemoteTls.sharedClient(
             OkHttpClient.Builder()
@@ -40,4 +41,7 @@ object Http {
                 },
         )
     }
+
+    /** Plain system-CA client for public model downloads, matching upstream. */
+    val downloadClient: OkHttpClient by lazy { OkHttpClient() }
 }
