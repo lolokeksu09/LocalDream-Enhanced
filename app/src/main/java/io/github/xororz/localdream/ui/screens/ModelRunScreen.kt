@@ -213,6 +213,7 @@ fun ModelRunScreen(
     val coroutineScope = rememberCoroutineScope()
     val batchController = remember(coroutineScope) { ModelRunBatchController(coroutineScope) }
     val imageJobController = remember { ModelRunImageJobController() }
+    val backendReadinessGuard = remember { ModelRunBackendReadinessGuard() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val modelRepository = remember { ModelRepository.getInstance(context) }
     val remoteRepository = remember { RemoteRepository.getInstance(context) }
@@ -1117,6 +1118,7 @@ fun ModelRunScreen(
             // batch item may start while teardown is in progress.
             batchController.cancel()
             imageJobController.cancel()
+            backendReadinessGuard.cancel()
             currentBitmap = null
             generationParams = null
             BackgroundGenerationService.stop(context)
@@ -1160,6 +1162,7 @@ fun ModelRunScreen(
     fun interruptGeneration() {
         batchController.cancel()
         imageJobController.cancel()
+        backendReadinessGuard.cancel()
         BackgroundGenerationService.stop(context)
         BackgroundGenerationService.resetState()
         displayState.onInterrupt()
@@ -1587,11 +1590,14 @@ fun ModelRunScreen(
     // screen's current config, so a process left over from an older
     // resolution can never be mistaken for ready.
     suspend fun awaitBackendReady() {
+        val readinessToken = backendReadinessGuard.begin()
         if (isRemote) {
             val client = remoteClient
             if (client == null) {
-                isCheckingBackend = false
-                errorMessage = msgBackendFailed
+                if (backendReadinessGuard.isCurrent(readinessToken)) {
+                    isCheckingBackend = false
+                    errorMessage = msgBackendFailed
+                }
                 return
             }
             checkRemoteBackendHealth(
@@ -1600,12 +1606,16 @@ fun ModelRunScreen(
                 expectedWidth = currentWidth,
                 expectedHeight = currentHeight,
                 onHealthy = {
-                    isCheckingBackend = false
-                    backendReady = true
+                    if (backendReadinessGuard.isCurrent(readinessToken)) {
+                        isCheckingBackend = false
+                        backendReady = true
+                    }
                 },
                 onUnhealthy = {
-                    isCheckingBackend = false
-                    errorMessage = msgBackendFailed
+                    if (backendReadinessGuard.isCurrent(readinessToken)) {
+                        isCheckingBackend = false
+                        errorMessage = msgBackendFailed
+                    }
                 },
             )
         } else {
