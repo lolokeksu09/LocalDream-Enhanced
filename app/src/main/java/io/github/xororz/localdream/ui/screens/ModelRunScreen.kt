@@ -214,6 +214,7 @@ fun ModelRunScreen(
     val batchController = remember(coroutineScope) { ModelRunBatchController(coroutineScope) }
     val imageJobController = remember { ModelRunImageJobController() }
     val backendReadinessGuard = remember { ModelRunBackendReadinessGuard() }
+    val cleanupGate = remember { ModelRunCleanupGate() }
     val lifecycleOwner = LocalLifecycleOwner.current
     val modelRepository = remember { ModelRepository.getInstance(context) }
     val remoteRepository = remember { RemoteRepository.getInstance(context) }
@@ -1113,6 +1114,7 @@ fun ModelRunScreen(
     }
 
     fun cleanup() {
+        if (!cleanupGate.enter()) return
         try {
             // Cancel the producer before stopping the service: no next
             // batch item may start while teardown is in progress.
