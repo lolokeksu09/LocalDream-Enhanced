@@ -133,21 +133,37 @@ jobs:
 
       - name: Build preview APK
         shell: bash
+        env:
+          PREVIEW_KEYSTORE_BASE64: ${{ secrets.LOCALDREAM_PREVIEW_KEYSTORE_BASE64 }}
+          PREVIEW_KEYSTORE_PASSWORD: ${{ secrets.LOCALDREAM_PREVIEW_KEYSTORE_PASSWORD }}
+          ALLOW_EPHEMERAL_SIGNING: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
           set -euo pipefail
           KEYSTORE="$RUNNER_TEMP/localdream-preview.jks"
-          KEY_PASSWORD="$(openssl rand -hex 16)"
-          keytool -genkeypair -noprompt \
-            -keystore "$KEYSTORE" \
-            -storepass "$KEY_PASSWORD" \
-            -keypass "$KEY_PASSWORD" \
-            -alias localdream-preview \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Local Dream Preview"
+          if [[ -n "${PREVIEW_KEYSTORE_BASE64:-}" && -n "${PREVIEW_KEYSTORE_PASSWORD:-}" ]]; then
+            printf '%s' "$PREVIEW_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            keytool -list -keystore "$KEYSTORE" -storepass "$PREVIEW_KEYSTORE_PASSWORD" -alias localdream-preview >/dev/null
+            KEY_PASSWORD="$PREVIEW_KEYSTORE_PASSWORD"
+            echo "Using persistent preview signing key."
+          elif [[ -z "${PREVIEW_KEYSTORE_BASE64:-}" && -z "${PREVIEW_KEYSTORE_PASSWORD:-}" && "${ALLOW_EPHEMERAL_SIGNING:-false}" == "true" ]]; then
+            KEY_PASSWORD="$(openssl rand -hex 16)"
+            keytool -genkeypair -noprompt \
+              -keystore "$KEYSTORE" \
+              -storetype JKS \
+              -storepass "$KEY_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -alias localdream-preview \
+              -keyalg RSA -keysize 3072 -validity 10000 \
+              -dname "CN=Local Dream Preview"
+            echo "::warning::This fork PR APK uses an ephemeral signing key and cannot update the persistent preview install."
+          else
+            echo "Missing or incomplete signing secrets. Configure LOCALDREAM_PREVIEW_KEYSTORE_BASE64 and LOCALDREAM_PREVIEW_KEYSTORE_PASSWORD in repository Actions secrets." >&2
+            exit 1
+          fi
           ./gradlew --no-daemon :app:assembleBasicDebug \
             -PPREVIEW_BUILD=true \
             -PRELEASE_STORE_FILE="$KEYSTORE" \
-            -PRELEASE_STORE_PASSWORD="$KEY_PASSWORD" \
+            -PRELEASE_STORE_PASSWORD="$PREVIEW_KEYSTORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS=localdream-preview \
             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD"
           APK_PATH="$(find app/build/outputs/apk/basic/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
@@ -155,6 +171,8 @@ jobs:
             echo "Gradle completed without producing the expected APK." >&2
             exit 1
           fi
+          APKSIGNER="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
           echo "Built APK: $APK_PATH"
           sha256sum "$APK_PATH"
 
