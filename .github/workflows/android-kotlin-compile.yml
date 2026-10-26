@@ -170,6 +170,7 @@ jobs:
             --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
             --tests "io.github.xororz.localdream.data.ModelSearchTest" \
             --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest" \
+            --tests "io.github.xororz.localdream.data.ModelCatalogSelectorTest" \
             --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
             --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest" \
             --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest" \
