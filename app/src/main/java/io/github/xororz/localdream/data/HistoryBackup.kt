@@ -50,8 +50,6 @@ object HistoryBackup {
 
     // Exactly the layout saveGeneratedImage produces. Anything else in a
     // manifest (absolute paths, traversal, foreign files) is rejected.
-    private val imagePathRegex = Regex("""history/[^/\\]+/\d+\.(png|jpg)""")
-
     suspend fun stats(context: Context): BackupStats = withContext(Dispatchers.IO) {
         val dao = AppDatabase.get(context).historyDao()
         val rows = dao.queryOnce(HistoryFilter().toSqlQuery())
@@ -60,6 +58,7 @@ object HistoryBackup {
         var favoriteCount = 0
         var favoriteBytes = 0L
         for (row in rows) {
+            if (!HistoryBackupPath.isSafeImagePath(row.imagePath)) continue
             val file = File(context.filesDir, row.imagePath)
             if (!file.isFile) continue
             val size = file.length()
@@ -84,7 +83,10 @@ object HistoryBackup {
             favorites = if (favoritesOnly) setOf(FavoriteFilter.FAVORITE) else null,
         )
         val rows = dao.queryOnce(filter.toSqlQuery())
-        val items = rows.filter { File(context.filesDir, it.imagePath).isFile }
+        val items = rows.filter {
+            HistoryBackupPath.isSafeImagePath(it.imagePath) &&
+                File(context.filesDir, it.imagePath).isFile
+        }
 
         val output = context.contentResolver.openOutputStream(uri)
             ?: throw IOException("Cannot open backup destination")
@@ -149,7 +151,7 @@ object HistoryBackup {
         var invalid = 0
         for (i in 0 until itemsJson.length()) {
             val entity = itemsJson.optJSONObject(i)?.let { jsonToEntity(it) }
-            if (entity == null || !imagePathRegex.matches(entity.imagePath)) {
+            if (entity == null || !HistoryBackupPath.isSafeImagePath(entity.imagePath)) {
                 invalid++
                 continue
             }
@@ -157,7 +159,9 @@ object HistoryBackup {
                 duplicates++
                 continue
             }
-            pending[entity.imagePath] = entity
+            if (pending.put(entity.imagePath, entity) != null) {
+                invalid++
+            }
         }
 
         // Pass 2: stream images to their final location, then insert the row.
@@ -181,7 +185,7 @@ object HistoryBackup {
                         BackupZipLimits.skipEntry(zip, budget, BackupZipLimits.MAX_MANIFEST_BYTES)
                         continue
                     }
-                    if (!imagePathRegex.matches(entry.name)) {
+                    if (!HistoryBackupPath.isSafeImagePath(entry.name)) {
                         throw BackupFormatException("unexpected file in backup")
                     }
                     val entity = pending.remove(entry.name)
