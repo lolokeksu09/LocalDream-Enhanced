@@ -1,4 +1,5 @@
 name: LocalDream preview APK
+# Trigger a fresh preview artifact without changing app sources.
 
 on:
   pull_request:
@@ -78,9 +79,7 @@ jobs:
           set -euo pipefail
           APK="$RUNNER_TEMP/localdream-upstream.apk"
           STAGE="$RUNNER_TEMP/localdream-upstream"
-          curl --fail --location --retry 3 --retry-delay 2 \
-            "https://github.com/xororz/local-dream/releases/download/v3.0.0-alpha.6/LocalDream_armv8a_3.0.0-alpha.6.apk" \
-            --output "$APK"
+          curl --fail --location --retry 3 --retry-delay 2             "https://github.com/xororz/local-dream/releases/download/v3.0.0-alpha.6/LocalDream_armv8a_3.0.0-alpha.6.apk"             --output "$APK"
           echo "bec75b588200eb83aedd82b0a26ed8c5de4cfd923d0f51e1e65d241fccc11f82  $APK" | sha256sum --check
           mkdir -p "$STAGE"
           python3 - "$APK" "$STAGE" <<'PY'
@@ -145,51 +144,13 @@ jobs:
           elif [[ -z "${PREVIEW_KEYSTORE_BASE64:-}" && -z "${PREVIEW_KEYSTORE_PASSWORD:-}" && "${ALLOW_EPHEMERAL_SIGNING:-false}" == "true" ]]; then
             KEY_PASSWORD="$(openssl rand -hex 16)"
             STORE_PASSWORD="$KEY_PASSWORD"
-            keytool -genkeypair -noprompt \
-              -keystore "$KEYSTORE" \
-              -storetype JKS \
-              -storepass "$KEY_PASSWORD" \
-              -keypass "$KEY_PASSWORD" \
-              -alias localdream-preview \
-              -keyalg RSA -keysize 3072 -validity 10000 \
-              -dname "CN=Local Dream Preview"
+            keytool -genkeypair -noprompt               -keystore "$KEYSTORE"               -storetype JKS               -storepass "$KEY_PASSWORD"               -keypass "$KEY_PASSWORD"               -alias localdream-preview               -keyalg RSA -keysize 3072 -validity 10000               -dname "CN=Local Dream Preview"
             echo "::warning::This fork PR APK uses an ephemeral signing key and cannot update the persistent preview install."
           else
             echo "Missing or incomplete signing secrets. Configure LOCALDREAM_PREVIEW_KEYSTORE_BASE64 and LOCALDREAM_PREVIEW_KEYSTORE_PASSWORD in repository Actions secrets." >&2
             exit 1
           fi
-          # A single Gradle invocation shares dependency resolution and task
-          # configuration between focused tests and the signed APK build.
-          ./gradlew --no-daemon \
-            -PPREVIEW_BUILD=true \
-            -PRELEASE_STORE_FILE="$KEYSTORE" \
-            -PRELEASE_STORE_PASSWORD="$STORE_PASSWORD" \
-            -PRELEASE_KEY_ALIAS=localdream-preview \
-            -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
-            :app:testBasicDebugUnitTest \
-            --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest" \
-            --tests "io.github.xororz.localdream.data.ModelSearchTest" \
-            --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest" \
-            --tests "io.github.xororz.localdream.data.ModelCatalogSelectorTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunPresentationTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunBatchControllerTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunDisplayStateTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunHistorySelectionTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunHistoryBulkControllerTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunSettingsCoordinatorTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunParameterStateTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunRequestTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunImagePreparationTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunImageJobControllerTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunBackendReadinessGuardTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunCompletionTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunGenerationPlanTest" \
-            --tests "io.github.xororz.localdream.ui.screens.ModelRunCleanupGateTest" \
-            --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest" \
-            --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest" \
-            --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest" \
-            --tests "io.github.xororz.localdream.data.BackupZipLimitsTest" \
-            :app:assembleBasicDebug
+          ./gradlew --no-daemon             -PPREVIEW_BUILD=true             -PRELEASE_STORE_FILE="$KEYSTORE"             -PRELEASE_STORE_PASSWORD="$STORE_PASSWORD"             -PRELEASE_KEY_ALIAS=localdream-preview             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD"             :app:testBasicDebugUnitTest             --tests "io.github.xororz.localdream.data.ModelArchiveInstallerTest"             --tests "io.github.xororz.localdream.data.ModelSearchTest"             --tests "io.github.xororz.localdream.data.ModelCatalogFilterTest"             --tests "io.github.xororz.localdream.data.ModelCatalogSelectorTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunPresentationTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunBatchControllerTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunDisplayStateTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunHistorySelectionTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunHistoryBulkControllerTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunSettingsCoordinatorTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunParameterStateTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunRequestTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunImagePreparationTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunImageJobControllerTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunBackendReadinessGuardTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunCompletionTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunGenerationPlanTest"             --tests "io.github.xororz.localdream.ui.screens.ModelRunCleanupGateTest"             --tests "io.github.xororz.localdream.remote.RemotePairingKeyTest"             --tests "io.github.xororz.localdream.remote.RemoteTlsPairingTest"             --tests "io.github.xororz.localdream.remote.RemoteRequestFramingTest"             --tests "io.github.xororz.localdream.data.BackupZipLimitsTest"             :app:assembleBasicDebug
           APK_PATH="$(find app/build/outputs/apk/basic/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
           if [[ -z "$APK_PATH" ]]; then
             echo "Gradle completed without producing the expected APK." >&2
