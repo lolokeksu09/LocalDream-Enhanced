@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -54,36 +54,36 @@ internal fun ModelRunPromptFields(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OutlinedButton(
+        FilterChip(
             onClick = {
                 onApplyTemplates(
                     "masterpiece, high quality portrait, detailed face, soft cinematic lighting, sharp focus",
                     "blurry, low quality, bad anatomy, extra fingers, watermark",
                 )
             },
-        ) {
-            Text(stringResource(R.string.quick_preset_portrait))
-        }
-        OutlinedButton(
+            selected = false,
+            label = { Text(stringResource(R.string.quick_preset_portrait)) },
+        )
+        FilterChip(
             onClick = {
                 onApplyTemplates(
                     "masterpiece, anime illustration, expressive eyes, detailed hair, vibrant colors, clean linework",
                     "blurry, low quality, bad anatomy, extra fingers, watermark",
                 )
             },
-        ) {
-            Text(stringResource(R.string.quick_preset_anime))
-        }
-        OutlinedButton(
+            selected = false,
+            label = { Text(stringResource(R.string.quick_preset_anime)) },
+        )
+        FilterChip(
             onClick = {
                 onApplyTemplates(
                     "highly detailed realistic photograph, natural lighting, realistic skin texture, sharp focus",
                     "blurry, low quality, oversaturated, plastic skin, watermark",
                 )
             },
-        ) {
-            Text(stringResource(R.string.quick_preset_realism))
-        }
+            selected = false,
+            label = { Text(stringResource(R.string.quick_preset_realism)) },
+        )
     }
     ControlledPromptTagTextField(
         controller = negativePromptField,
