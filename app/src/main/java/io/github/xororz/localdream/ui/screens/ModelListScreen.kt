@@ -50,6 +50,7 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -286,7 +287,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
     var showFileManagerDialog by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
     var showCleanTempDialog by remember { mutableStateOf(false) }
@@ -1233,7 +1234,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     // Settings overlay with predictive back support.
     // drawerOffset: 0f = fully open, 1f = fully off-screen to the right.
-    val drawerOffset = remember { Animatable(1f) }
+    val drawerOffset = remember { Animatable(if (showSettingsDialog) 0f else 1f) }
     val drawerAnimSpec = tween<Float>(Motion.DurationLong, easing = Motion.Emphasized)
     LaunchedEffect(showSettingsDialog) {
         drawerOffset.animateTo(
