@@ -1,11 +1,9 @@
 package io.github.xororz.localdream.ui.screens
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +29,7 @@ internal fun selectedQuickSettingsPreset(steps: Float, cfg: Float): QuickSetting
 
 private fun Float.isCloseTo(expected: Float): Boolean = kotlin.math.abs(this - expected) < 0.01f
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun GenerationQuickSettings(
     steps: Float,
@@ -52,11 +51,10 @@ internal fun GenerationQuickSettings(
             }
         }
         Text(stringResource(R.string.quick_settings_custom_hint), style = MaterialTheme.typography.bodySmall)
-        Row(
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(vertical = 2.dp),
+        FlowRow(
+            modifier = Modifier.padding(vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             FilterChip(
                 selected = selected == QuickSettingsPreset.FAST,
