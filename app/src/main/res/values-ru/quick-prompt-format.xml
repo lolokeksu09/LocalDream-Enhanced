@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quick_prompt_format_title">Формат быстрых промптов</string>
+    <string name="quick_prompt_format_auto">Авто</string>
+    <string name="quick_prompt_format_universal">Универсальный</string>
+    <string name="quick_prompt_format_tags">Теги</string>
+    <string name="quick_prompt_format_description">Описание</string>
+    <string name="quick_prompt_format_active">Выбранный формат: %1$s</string>
+</resources>

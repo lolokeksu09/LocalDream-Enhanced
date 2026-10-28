@@ -24,9 +24,11 @@ data class ModelConfig(
     // Code-level only (not read from config.json): models whose img2img
     // semantics differ, like Klein's reference edit, pick their own default.
     val denoiseStrength: Float? = null,
+    val promptFormat: String? = null,
 ) {
     /** Field-by-field merge: values from this win, [other] fills the nulls. */
     fun withFallback(other: ModelConfig): ModelConfig = ModelConfig(
+        promptFormat = promptFormat ?: other.promptFormat,
         prompt = prompt ?: other.prompt,
         negativePrompt = negativePrompt ?: other.negativePrompt,
         steps = steps ?: other.steps,
@@ -69,6 +71,8 @@ data class ModelConfig(
             return try {
                 val json = JSONObject(file.readText())
                 ModelConfig(
+                    promptFormat = json.optStringOrNull("prompt_format")
+                        ?.lowercase()?.takeIf { it in setOf("tags", "description", "universal") },
                     prompt = json.optStringOrNull("default_prompt"),
                     negativePrompt = json.optStringOrNull("default_negative_prompt"),
                     steps = json.optFloatOrNull("default_steps")

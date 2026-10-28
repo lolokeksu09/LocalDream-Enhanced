@@ -94,18 +94,127 @@ private val quickPromptCollections = mapOf(
     ),
 )
 
-/** A deterministic cycle: all scene/finish combinations appear before repeating. */
-internal fun quickPromptOptions(category: QuickPromptCategory): List<QuickPrompt> {
+internal enum class PromptFormat { UNIVERSAL, TAGS, DESCRIPTION }
+internal enum class PromptFormatChoice { AUTO, UNIVERSAL, TAGS, DESCRIPTION }
+
+internal fun promptFormatChoice(saved: String?): PromptFormatChoice =
+    PromptFormatChoice.values().firstOrNull { it.name.equals(saved, ignoreCase = true) }
+        ?: PromptFormatChoice.AUTO
+
+internal fun resolvePromptFormat(
+    choice: PromptFormatChoice,
+    metadata: String?,
+    isKnownQwen: Boolean,
+): PromptFormat {
+    if (choice != PromptFormatChoice.AUTO) return PromptFormat.valueOf(choice.name)
+    val explicit = PromptFormat.values().firstOrNull { it.name.equals(metadata, ignoreCase = true) }
+    return explicit ?: if (isKnownQwen) PromptFormat.DESCRIPTION else PromptFormat.UNIVERSAL
+}
+
+private val tagScenes = mapOf(
+    QuickPromptCategory.PORTRAIT to listOf(
+        "portrait, traveler, thoughtful expression",
+        "portrait, artist, paintbrush, art studio",
+        "portrait, musician, violin, backstage",
+        "portrait, scientist, laboratory, confident expression",
+        "portrait, writer, window, books",
+        "portrait, dancer, rehearsal room, elegant pose",
+        "portrait, gardener, flowers, smile",
+        "portrait, barista, cafe, candid",
+        "portrait, fashion model, studio, poised expression",
+        "portrait, sailor, seashore, windblown hair",
+        "portrait, photographer, old city, camera",
+        "portrait, adventurer, mountains, weathered jacket",
+    ),
+    QuickPromptCategory.ANIME to listOf(
+        "anime style, traveler, lanterns, street",
+        "anime style, student, reading, library",
+        "anime style, swordswoman, cherry blossoms",
+        "anime style, musician, rooftop",
+        "anime style, mage, ancient forest",
+        "anime style, pilot, futuristic aircraft",
+        "anime style, friends, summer festival",
+        "anime style, detective, rainy city",
+        "anime style, cook, cozy kitchen",
+        "anime style, adventurer, mountain bridge",
+        "anime style, guardian, moonlit garden",
+        "anime style, girl, train window, ocean",
+    ),
+    QuickPromptCategory.REALISM to listOf(
+        "photograph, cafe, street, after rain",
+        "photograph, mountain lake, pine trees",
+        "photograph, stone alley, flowers, windows",
+        "photograph, lighthouse, rocky coast",
+        "photograph, train, snowy valley",
+        "photograph, market stall, colorful fruit",
+        "photograph, cabin, misty forest",
+        "photograph, city skyline, river reflection",
+        "photograph, wild horse, open field",
+        "photograph, cozy room, books, cup of tea",
+        "photograph, sailboat, rocky island",
+        "photograph, botanical garden, tropical plants",
+    ),
+)
+
+private val tagFinishes = mapOf(
+    QuickPromptCategory.PORTRAIT to listOf(
+        "window light, natural skin texture, shallow depth of field",
+        "golden hour, warm colors, background blur",
+        "side lighting, deep shadows, cinematic",
+        "overcast lighting, muted colors, delicate details",
+        "studio lighting, neutral background, sharp focus",
+        "neon reflections, night lighting",
+        "backlighting, evening sun, rim light",
+        "monochrome, tonal contrast",
+    ),
+    QuickPromptCategory.ANIME to listOf(
+        "clean linework, expressive eyes, vibrant colors",
+        "pastel colors, soft light, delicate details",
+        "cinematic lighting, detailed background, depth",
+        "watercolor texture, soft edges, airy colors",
+        "retro anime, cel shading, film grain",
+        "dramatic shadows, rich colors, dynamic composition",
+        "dreamlike light, luminous highlights, intricate scenery",
+        "manga, ink lines, limited palette, high contrast",
+    ),
+    QuickPromptCategory.REALISM to listOf(
+        "natural light, detailed textures",
+        "golden hour, warm colors",
+        "overcast sky, soft light",
+        "blue hour, atmospheric haze",
+        "storm light, rich contrast",
+        "morning mist, subdued colors",
+        "midday light, crisp detail",
+        "cinematic composition, natural colors",
+    ),
+)
+
+/** Each format cycles through every scene/finish combination before repeating. */
+internal fun quickPromptOptions(
+    category: QuickPromptCategory,
+    format: PromptFormat = PromptFormat.UNIVERSAL,
+): List<QuickPrompt> {
     val collection = quickPromptCollections.getValue(category)
-    return collection.finishes.flatMap { finish ->
-        collection.scenes.map { scene ->
-            QuickPrompt("$scene, $finish", collection.negativePrompt)
+    return collection.finishes.flatMapIndexed { finishIndex, finish ->
+        collection.scenes.mapIndexed { sceneIndex, scene ->
+            val prompt = when (format) {
+                PromptFormat.UNIVERSAL -> "$scene, $finish"
+                PromptFormat.TAGS ->
+                    "${tagScenes.getValue(category)[sceneIndex]}, ${tagFinishes.getValue(category)[finishIndex]}"
+                PromptFormat.DESCRIPTION ->
+                    "A scene showing $scene. The image has $finish."
+            }
+            QuickPrompt(prompt, collection.negativePrompt)
         }
     }
 }
 
-internal fun nextQuickPrompt(category: QuickPromptCategory, currentPrompt: String): QuickPrompt {
-    val options = quickPromptOptions(category)
+internal fun nextQuickPrompt(
+    category: QuickPromptCategory,
+    currentPrompt: String,
+    format: PromptFormat = PromptFormat.UNIVERSAL,
+): QuickPrompt {
+    val options = quickPromptOptions(category, format)
     val currentIndex = options.indexOfFirst { it.prompt == currentPrompt }
     return options[(currentIndex + 1) % options.size]
 }

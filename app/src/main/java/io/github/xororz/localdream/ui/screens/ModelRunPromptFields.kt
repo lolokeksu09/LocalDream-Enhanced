@@ -25,6 +25,9 @@ internal fun ModelRunPromptFields(
     promptField: PromptFieldController,
     negativePromptField: PromptFieldController,
     autocompleteAvailable: Boolean,
+    promptFormatChoice: PromptFormatChoice,
+    effectivePromptFormat: PromptFormat,
+    onPromptFormatChange: (PromptFormatChoice) -> Unit,
     showTemplates: Boolean,
     onShowTemplates: () -> Unit,
     onApplyTemplates: (String, String) -> Unit,
@@ -34,6 +37,36 @@ internal fun ModelRunPromptFields(
         text = stringResource(R.string.prompt_settings),
         style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
         color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+    )
+    Text(
+        text = stringResource(R.string.quick_prompt_format_title),
+        style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(
+            PromptFormatChoice.AUTO to R.string.quick_prompt_format_auto,
+            PromptFormatChoice.UNIVERSAL to R.string.quick_prompt_format_universal,
+            PromptFormatChoice.TAGS to R.string.quick_prompt_format_tags,
+            PromptFormatChoice.DESCRIPTION to R.string.quick_prompt_format_description,
+        ).forEach { (choice, label) ->
+            FilterChip(
+                selected = promptFormatChoice == choice,
+                onClick = { onPromptFormatChange(choice) },
+                label = { Text(stringResource(label)) },
+            )
+        }
+    }
+    val effectiveLabel = when (effectivePromptFormat) {
+        PromptFormat.UNIVERSAL -> R.string.quick_prompt_format_universal
+        PromptFormat.TAGS -> R.string.quick_prompt_format_tags
+        PromptFormat.DESCRIPTION -> R.string.quick_prompt_format_description
+    }
+    Text(
+        text = stringResource(R.string.quick_prompt_format_active, stringResource(effectiveLabel)),
+        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
     )
     ControlledPromptTagTextField(
         controller = promptField,
@@ -61,7 +94,7 @@ internal fun ModelRunPromptFields(
         ).forEach { (category, label) ->
             FilterChip(
                 onClick = {
-                    val preset = nextQuickPrompt(category, promptField.text)
+                    val preset = nextQuickPrompt(category, promptField.text, effectivePromptFormat)
                     onApplyTemplates(preset.prompt, preset.negativePrompt)
                 },
                 selected = false,

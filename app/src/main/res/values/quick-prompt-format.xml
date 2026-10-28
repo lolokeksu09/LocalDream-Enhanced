@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quick_prompt_format_title">Quick prompt format</string>
+    <string name="quick_prompt_format_auto">Auto</string>
+    <string name="quick_prompt_format_universal">Universal</string>
+    <string name="quick_prompt_format_tags">Tags</string>
+    <string name="quick_prompt_format_description">Description</string>
+    <string name="quick_prompt_format_active">Active format: %1$s</string>
+</resources>

@@ -14,6 +14,21 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "generation_prefs")
 
 class GenerationPreferences(private val context: Context) {
+    private fun getPromptFormatKey(modelId: String) = stringPreferencesKey("${modelId}_prompt_format")
+
+    fun observePromptFormat(modelId: String): Flow<String?> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { it[getPromptFormatKey(modelId)] }
+
+    suspend fun setPromptFormat(modelId: String, value: String?) {
+        context.dataStore.edit { preferences ->
+            if (value == null) preferences.remove(getPromptFormatKey(modelId))
+            else preferences[getPromptFormatKey(modelId)] = value
+        }
+    }
+
     private fun getPromptKey(modelId: String) = stringPreferencesKey("${modelId}_prompt")
     private fun getNegativePromptKey(modelId: String) = stringPreferencesKey("${modelId}_negative_prompt")
 
@@ -219,6 +234,7 @@ class GenerationPreferences(private val context: Context) {
 
     suspend fun clearPreferencesForModel(modelId: String) {
         context.dataStore.edit { preferences ->
+            preferences.remove(getPromptFormatKey(modelId))
             preferences.remove(getPromptKey(modelId))
             preferences.remove(getNegativePromptKey(modelId))
             preferences.remove(getStepsKey(modelId))

@@ -255,6 +255,16 @@ fun ModelRunScreen(
     } else {
         remember(modelRepository.models) { modelRepository.models.find { it.id == modelId } }
     }
+    val savedPromptFormat by remember(modelId) {
+        generationPreferences.observePromptFormat(modelId)
+    }.collectAsState(initial = null)
+    val formatChoice = promptFormatChoice(savedPromptFormat)
+    val effectivePromptFormat = resolvePromptFormat(
+        formatChoice,
+        model?.codeDefaults?.promptFormat ?: model?.configDefaults?.promptFormat,
+        isKnownQwen = model?.isCustom == false && model.ditKind == "qwen21",
+    )
+
     val supportsReferenceEditing = model?.ditKind == "klein" ||
         model?.ditKind == "qwen21"
     LaunchedEffect(Unit) {
@@ -1888,6 +1898,16 @@ fun ModelRunScreen(
                             promptField = promptField,
                             negativePromptField = negativePromptField,
                             autocompleteAvailable = tagAutocompleteAvailable,
+                            promptFormatChoice = formatChoice,
+                            effectivePromptFormat = effectivePromptFormat,
+                            onPromptFormatChange = { choice ->
+                                scope.launch {
+                                    generationPreferences.setPromptFormat(
+                                        modelId,
+                                        choice.takeUnless { it == PromptFormatChoice.AUTO }?.name?.lowercase(),
+                                    )
+                                }
+                            },
                             showTemplates = showPromptTemplates,
                             onShowTemplates = { showPromptTemplates = true },
                             onApplyTemplates = { prompt, negativePrompt ->

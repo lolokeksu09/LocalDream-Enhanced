@@ -6,32 +6,40 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QuickPromptOptionsTest {
-    @Test fun everyCategoryCyclesThroughDistinctPromptsBeforeRepeating() {
-        for (category in QuickPromptCategory.values()) {
-            val options = quickPromptOptions(category)
-            assertTrue(options.size >= 90)
-            assertEquals(options.size, options.map { it.prompt }.distinct().size)
-            var current = ""
-            for (expected in options) {
-                val next = nextQuickPrompt(category, current)
-                assertEquals(expected, next)
-                assertNotEquals(current, next.prompt)
-                assertTrue(next.negativePrompt.isNotBlank())
-                current = next.prompt
+    @Test fun everyFormatAndCategoryCyclesThroughDistinctPrompts() {
+        for (format in PromptFormat.values()) {
+            for (category in QuickPromptCategory.values()) {
+                val options = quickPromptOptions(category, format)
+                assertEquals(96, options.size)
+                assertEquals(options.size, options.map { it.prompt }.distinct().size)
+                var current = ""
+                for (expected in options) {
+                    val next = nextQuickPrompt(category, current, format)
+                    assertEquals(expected, next)
+                    assertNotEquals(current, next.prompt)
+                    assertTrue(next.negativePrompt.isNotBlank())
+                    current = next.prompt
+                }
+                assertEquals(options.first(), nextQuickPrompt(category, current, format))
             }
-            assertEquals(options.first(), nextQuickPrompt(category, current))
         }
     }
 
-    @Test fun unknownOrOtherCategoryPromptStartsAtFirstOption() {
-        val otherPrompt = quickPromptOptions(QuickPromptCategory.ANIME).first().prompt
-        assertEquals(
-            quickPromptOptions(QuickPromptCategory.REALISM).first(),
-            nextQuickPrompt(QuickPromptCategory.REALISM, otherPrompt),
-        )
-        assertEquals(
-            quickPromptOptions(QuickPromptCategory.ANIME).first(),
-            nextQuickPrompt(QuickPromptCategory.ANIME, "my own prompt"),
-        )
+    @Test fun manualSelectionOverridesMetadataAndAutomaticDefaults() {
+        assertEquals(PromptFormat.TAGS, resolvePromptFormat(PromptFormatChoice.TAGS, "description", true))
+        assertEquals(PromptFormat.UNIVERSAL, resolvePromptFormat(PromptFormatChoice.UNIVERSAL, "tags", false))
+        assertEquals(PromptFormat.DESCRIPTION, resolvePromptFormat(PromptFormatChoice.AUTO, null, true))
+        assertEquals(PromptFormat.TAGS, resolvePromptFormat(PromptFormatChoice.AUTO, "tags", false))
+        assertEquals(PromptFormat.UNIVERSAL, resolvePromptFormat(PromptFormatChoice.AUTO, "unknown", false))
+        assertEquals(PromptFormatChoice.AUTO, promptFormatChoice("invalid"))
+        assertEquals(PromptFormatChoice.DESCRIPTION, promptFormatChoice("description"))
+    }
+
+    @Test fun formatChangeStartsASeparateCycle() {
+        val tagPrompt = nextQuickPrompt(QuickPromptCategory.ANIME, "", PromptFormat.TAGS).prompt
+        val sentence = nextQuickPrompt(QuickPromptCategory.ANIME, tagPrompt, PromptFormat.DESCRIPTION)
+        assertEquals(quickPromptOptions(QuickPromptCategory.ANIME, PromptFormat.DESCRIPTION).first(), sentence)
+        assertTrue(sentence.prompt.startsWith("A scene showing "))
+        assertNotEquals(tagPrompt, sentence.prompt)
     }
 }

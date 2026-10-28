@@ -38,6 +38,20 @@ If you like it, please consider [sponsor](#-support-this-project) this project.
 >
 > You can join our [telegram group](https://t.me/local_dream) for discussion or help with testing.
 
+## Quick prompt formats
+
+Quick prompt format is saved separately for each model. Auto uses explicit
+`prompt_format` metadata when present, otherwise uses descriptions for the
+built-in Qwen Image 2.1 models and universal prompts for unknown models. You
+can override this with Universal, Tags, or Description on the prompt screen.
+Changing the format takes effect the next time a quick prompt is selected.
+
+For an imported model, its optional `config.json` may declare
+`"prompt_format": "tags"`, `"description"`, or `"universal"`. Unknown
+values are ignored. A format is a prompt-writing preference, not proof that a
+model will produce good results. Selecting a quick prompt replaces both current
+prompt fields; save custom text before selecting one.
+
 ## User Guide
 
 For certain reasons, all guides and documentation have been moved to [Guide Site](https://ld-guide.chino.icu).
