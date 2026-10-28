@@ -6,4 +6,13 @@
     <string name="quick_prompt_format_tags">Теги</string>
     <string name="quick_prompt_format_description">Описание</string>
     <string name="quick_prompt_format_active">Выбранный формат: %1$s</string>
+    <string name="quick_prompt_styles_title">Быстрые стили</string>
+    <string name="quick_prompt_confirm_title">Применить стиль</string>
+    <string name="quick_prompt_confirm_message">Добавить стиль к текущим промптам или заменить оба промпта?</string>
+    <string name="quick_prompt_add">Добавить</string>
+    <string name="quick_prompt_replace">Заменить</string>
+    <string name="quick_prompt_cancel">Отмена</string>
+    <string name="quick_preset_parameters">%1$d шагов · CFG %2$s</string>
+    <string name="quick_settings_model_default">Для модели: %1$d шагов · CFG %2$s</string>
+    <string name="quick_settings_custom_hint">Эти наборы подходят не всем моделям.</string>
 </resources>

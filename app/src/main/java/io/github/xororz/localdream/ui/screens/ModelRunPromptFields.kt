@@ -2,6 +2,8 @@ package io.github.xororz.localdream.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -9,10 +11,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -31,43 +43,15 @@ internal fun ModelRunPromptFields(
     showTemplates: Boolean,
     onShowTemplates: () -> Unit,
     onApplyTemplates: (String, String) -> Unit,
+    onApplyQuickPrompt: (String, String) -> Unit,
     onDismissTemplates: () -> Unit,
 ) {
-    Text(
-        text = stringResource(R.string.prompt_settings),
-        style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
-        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-    )
-    Text(
-        text = stringResource(R.string.quick_prompt_format_title),
-        style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        listOf(
-            PromptFormatChoice.AUTO to R.string.quick_prompt_format_auto,
-            PromptFormatChoice.UNIVERSAL to R.string.quick_prompt_format_universal,
-            PromptFormatChoice.TAGS to R.string.quick_prompt_format_tags,
-            PromptFormatChoice.DESCRIPTION to R.string.quick_prompt_format_description,
-        ).forEach { (choice, label) ->
-            FilterChip(
-                selected = promptFormatChoice == choice,
-                onClick = { onPromptFormatChange(choice) },
-                label = { Text(stringResource(label)) },
-            )
-        }
-    }
+    var pendingQuickPrompt by remember { mutableStateOf<QuickPrompt?>(null) }
     val effectiveLabel = when (effectivePromptFormat) {
         PromptFormat.UNIVERSAL -> R.string.quick_prompt_format_universal
         PromptFormat.TAGS -> R.string.quick_prompt_format_tags
         PromptFormat.DESCRIPTION -> R.string.quick_prompt_format_description
     }
-    Text(
-        text = stringResource(R.string.quick_prompt_format_active, stringResource(effectiveLabel)),
-        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-    )
     ControlledPromptTagTextField(
         controller = promptField,
         autocompleteAvailable = autocompleteAvailable,
@@ -80,6 +64,10 @@ internal fun ModelRunPromptFields(
                 showCount = promptField.text.isNotEmpty(),
             )
         },
+    )
+    Text(
+        text = stringResource(R.string.quick_prompt_styles_title),
+        style = MaterialTheme.typography.labelLarge,
     )
     Row(
         modifier = Modifier
@@ -95,11 +83,57 @@ internal fun ModelRunPromptFields(
             FilterChip(
                 onClick = {
                     val preset = nextQuickPrompt(category, promptField.text, effectivePromptFormat)
-                    onApplyTemplates(preset.prompt, preset.negativePrompt)
+                    if (requiresQuickPromptConfirmation(promptField.text, negativePromptField.text)) {
+                        pendingQuickPrompt = preset
+                    } else {
+                        onApplyQuickPrompt(preset.prompt, preset.negativePrompt)
+                    }
                 },
                 selected = false,
                 label = { Text(stringResource(label)) },
             )
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.quick_prompt_format_title), style = MaterialTheme.typography.labelLarge)
+            Text(
+                stringResource(R.string.quick_prompt_format_active, stringResource(effectiveLabel)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        var menuExpanded by remember { mutableStateOf(false) }
+        Box {
+            TextButton(onClick = { menuExpanded = true }) {
+                Text(stringResource(when (promptFormatChoice) {
+                    PromptFormatChoice.AUTO -> R.string.quick_prompt_format_auto
+                    PromptFormatChoice.UNIVERSAL -> R.string.quick_prompt_format_universal
+                    PromptFormatChoice.TAGS -> R.string.quick_prompt_format_tags
+                    PromptFormatChoice.DESCRIPTION -> R.string.quick_prompt_format_description
+                }))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                listOf(
+                    PromptFormatChoice.AUTO to R.string.quick_prompt_format_auto,
+                    PromptFormatChoice.UNIVERSAL to R.string.quick_prompt_format_universal,
+                    PromptFormatChoice.TAGS to R.string.quick_prompt_format_tags,
+                    PromptFormatChoice.DESCRIPTION to R.string.quick_prompt_format_description,
+                ).forEach { (choice, label) ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(label)) },
+                        onClick = {
+                            onPromptFormatChange(choice)
+                            menuExpanded = false
+                        },
+                    )
+                }
+            }
         }
     }
     ControlledPromptTagTextField(
@@ -128,6 +162,33 @@ internal fun ModelRunPromptFields(
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.prompt_templates))
         }
+    }
+    pendingQuickPrompt?.let { preset ->
+        AlertDialog(
+            onDismissRequest = { pendingQuickPrompt = null },
+            title = { Text(stringResource(R.string.quick_prompt_confirm_title)) },
+            text = { Text(stringResource(R.string.quick_prompt_confirm_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onApplyQuickPrompt(
+                        appendQuickPrompt(promptField.text, preset.prompt),
+                        appendQuickPrompt(negativePromptField.text, preset.negativePrompt),
+                    )
+                    pendingQuickPrompt = null
+                }) { Text(stringResource(R.string.quick_prompt_add)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { pendingQuickPrompt = null }) {
+                        Text(stringResource(R.string.quick_prompt_cancel))
+                    }
+                    TextButton(onClick = {
+                        onApplyQuickPrompt(preset.prompt, preset.negativePrompt)
+                        pendingQuickPrompt = null
+                    }) { Text(stringResource(R.string.quick_prompt_replace)) }
+                }
+            },
+        )
     }
     if (showTemplates) {
         PromptTemplatesDialog(

@@ -1,6 +1,7 @@
 package io.github.xororz.localdream.ui.theme
 
 import android.os.Build
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -8,12 +9,15 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import io.github.xororz.localdream.data.DarkModePreference
 import io.github.xororz.localdream.data.ThemePreferences
 import io.github.xororz.localdream.data.ThemeState
@@ -65,6 +69,16 @@ fun LocalDreamTheme(themeState: ThemeState, content: @Composable () -> Unit) {
         }
 
         else -> themeState.preset.scheme(darkTheme)
+    }
+
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.context as? Activity)?.window
+        if (!view.isInEditMode && window != null) {
+            val insets = WindowCompat.getInsetsController(window, view)
+            insets.isAppearanceLightStatusBars = !darkTheme
+            insets.isAppearanceLightNavigationBars = !darkTheme
+        }
     }
 
     MaterialExpressiveTheme(

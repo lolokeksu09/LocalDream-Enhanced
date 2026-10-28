@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +35,8 @@ private fun Float.isCloseTo(expected: Float): Boolean = kotlin.math.abs(this - e
 internal fun GenerationQuickSettings(
     steps: Float,
     cfg: Float,
+    modelDefaultSteps: Float?,
+    modelDefaultCfg: Float?,
     onApply: (steps: Float, cfg: Float) -> Unit,
 ) {
     val selected = selectedQuickSettingsPreset(steps, cfg)
@@ -43,6 +46,12 @@ internal fun GenerationQuickSettings(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (modelDefaultSteps != null && modelDefaultCfg != null) {
+            OutlinedButton(onClick = { onApply(modelDefaultSteps, modelDefaultCfg) }) {
+                Text(stringResource(R.string.quick_settings_model_default, modelDefaultSteps.toInt(), modelDefaultCfg.toString()))
+            }
+        }
+        Text(stringResource(R.string.quick_settings_custom_hint), style = MaterialTheme.typography.bodySmall)
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
@@ -52,17 +61,17 @@ internal fun GenerationQuickSettings(
             FilterChip(
                 selected = selected == QuickSettingsPreset.FAST,
                 onClick = { onApply(8f, 4.5f) },
-                label = { Text(stringResource(R.string.quick_settings_fast)) },
+                label = { Text(stringResource(R.string.quick_preset_parameters, 8, "4.5")) },
             )
             FilterChip(
                 selected = selected == QuickSettingsPreset.QUALITY,
                 onClick = { onApply(20f, 7f) },
-                label = { Text(stringResource(R.string.quick_settings_quality)) },
+                label = { Text(stringResource(R.string.quick_preset_parameters, 20, "7")) },
             )
             FilterChip(
                 selected = selected == QuickSettingsPreset.DETAIL,
                 onClick = { onApply(30f, 7.5f) },
-                label = { Text(stringResource(R.string.quick_settings_detail)) },
+                label = { Text(stringResource(R.string.quick_preset_parameters, 30, "7.5")) },
             )
         }
     }

@@ -52,7 +52,7 @@
     <string name="reset">Сбросить</string>
     <string name="reset_hint">Сбросить все параметры? Это действие нельзя отменить.</string>
     <string name="media_permission_hint">Для генерации img2img требуется доступ к медиафайлам</string>
-    <string name="backend_failed">Не удалось запустить сервер. Возможно, устройство не поддерживается.</string>
+    <string name="backend_failed">Не удалось запустить генератор. Проверьте комплектность файлов модели и её совместимость с устройством, затем откройте модель снова.</string>
     <plurals name="preview_stride_hint">
         <item quantity="one">Обновлять предпросмотр через %d шаг</item>
         <item quantity="few">Обновлять предпросмотр через %d шага</item>

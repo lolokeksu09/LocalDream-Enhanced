@@ -187,7 +187,7 @@
     <string name="reset">Reset</string>
     <string name="reset_hint">Reset all parameters? This action cannot be undone. </string>
     <string name="media_permission_hint">Media permission is needed for img2img generation</string>
-    <string name="backend_failed">Backend start failed. Maybe your device is not supported.</string>
+    <string name="backend_failed">Could not start the backend. Check that the model files are complete and compatible with this device, then reopen the model.</string>
 
     <!-- Parameter Settings -->
     <string name="generation_params">Generation Params</string>

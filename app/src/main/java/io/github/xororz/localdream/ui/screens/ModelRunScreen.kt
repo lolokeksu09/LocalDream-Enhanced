@@ -1916,12 +1916,19 @@ fun ModelRunScreen(
                                 saveAllFields()
                                 showPromptTemplates = false
                             },
+                            onApplyQuickPrompt = { prompt, negativePrompt ->
+                                promptField.replaceText(prompt, cursorAtStart = true)
+                                negativePromptField.replaceText(negativePrompt, cursorAtStart = true)
+                                saveAllFields()
+                            },
                             onDismissTemplates = { showPromptTemplates = false },
                         )
 
                         GenerationQuickSettings(
                             steps = steps,
                             cfg = cfg,
+                            modelDefaultSteps = model?.codeDefaults?.steps ?: model?.configDefaults?.steps,
+                            modelDefaultCfg = model?.codeDefaults?.cfg ?: model?.configDefaults?.cfg,
                             onApply = { newSteps, newCfg ->
                                 steps = newSteps
                                 cfg = newCfg

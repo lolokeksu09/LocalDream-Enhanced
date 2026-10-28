@@ -193,8 +193,8 @@ internal class PromptFieldController(
      * bypassing undo history and clearing any open suggestions. Persistence is
      * the caller's responsibility, matching the previous inline assignments.
      */
-    fun replaceText(newText: String) {
-        fieldValue = TextFieldValue(newText, TextRange(newText.length))
+    fun replaceText(newText: String, cursorAtStart: Boolean = false) {
+        fieldValue = TextFieldValue(newText, TextRange(if (cursorAtStart) 0 else newText.length))
         suggestions = emptyList()
     }
 
