@@ -205,6 +205,12 @@ fun HistoryScreen(navController: NavController) {
         HistoryComparisonDialog(
             historyManager = historyManager,
             selectedIds = ids,
+            currentModelId = null,
+            onSelectResult = { item ->
+                compareIds = null
+                previewItem = item
+                showParamsDialog = true
+            },
             onDismiss = { compareIds = null },
         )
     }

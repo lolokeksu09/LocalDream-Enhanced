@@ -3,7 +3,7 @@
     <string name="history_compare_title">Сравнение результатов</string>
     <string name="history_compare_first">Первый результат</string>
     <string name="history_compare_second">Второй результат</string>
-    <string name="history_compare_hint">Чтобы повторить настройки, закройте сравнение, выйдите из выбора и откройте результат в истории.</string>
+    <string name="history_compare_hint">Выберите действие под нужным результатом.</string>
     <string name="history_compare_load_failed">Не удалось загрузить оба результата. Возможно, они удалены. Закройте окно и выберите их снова.</string>
     <string name="history_compare_image_missing">Изображение недоступно</string>
     <string name="history_compare_model">Модель</string>
@@ -18,4 +18,8 @@
     <string name="history_compare_unavailable">Нет данных</string>
     <string name="history_compare_empty">Пусто</string>
     <string name="quick_prompt_undo">Отменить быстрый промпт</string>
+    <string name="history_compare_use_settings">Использовать</string>
+    <string name="history_compare_view_parameters">Параметры</string>
+    <string name="history_compare_use_description">Использовать настройки: %1$s</string>
+    <string name="history_compare_view_description">Посмотреть параметры: %1$s</string>
 </resources>

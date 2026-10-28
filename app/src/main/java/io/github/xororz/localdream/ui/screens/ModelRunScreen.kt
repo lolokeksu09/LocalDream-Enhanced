@@ -3155,6 +3155,18 @@ fun ModelRunScreen(
         HistoryComparisonDialog(
             historyManager = historyManager,
             selectedIds = ids,
+            currentModelId = modelId,
+            onSelectResult = { item ->
+                compareIds = null
+                if (canReuseComparedSettings(modelId, item.modelId)) {
+                    pendingReproduceParams = item.params
+                    showReproduceParamsDialog = true
+                } else {
+                    selectedHistoryItem = item
+                    showHistoryDetailDialog = true
+                    showHistoryParametersDialog = true
+                }
+            },
             onDismiss = { compareIds = null },
         )
     }
@@ -3286,6 +3298,7 @@ fun ModelRunScreen(
             modelId = selectedHistoryItem?.modelId ?: "",
             displayMode = selectedHistoryItem?.mode,
             showImg2imgButton = useImg2img,
+            showReproduceButton = selectedHistoryItem?.modelId == modelId,
             onShare = {
                 shareSourceParams = params
                 shareSourceModelId = selectedHistoryItem?.modelId
@@ -3390,6 +3403,7 @@ fun ModelRunScreen(
                 pendingReproduceParams = null
                 showHistoryDetailDialog = false
                 selectedHistoryItem = null
+                historyBulk.clearSelection()
                 scope.launch {
                     pagerState.animateScrollToPage(0)
                 }

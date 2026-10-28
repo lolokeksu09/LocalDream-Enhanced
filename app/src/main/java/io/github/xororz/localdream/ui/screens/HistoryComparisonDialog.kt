@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -41,6 +43,8 @@ import io.github.xororz.localdream.data.HistoryManager
 internal fun HistoryComparisonDialog(
     historyManager: HistoryManager,
     selectedIds: List<Long>,
+    currentModelId: String?,
+    onSelectResult: (HistoryItem) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val items by produceState<List<HistoryItem>?>(initialValue = null, historyManager, selectedIds) {
@@ -81,8 +85,8 @@ internal fun HistoryComparisonDialog(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CompareImage(first, stringResource(R.string.history_compare_first), Modifier.weight(1f))
-                                CompareImage(second, stringResource(R.string.history_compare_second), Modifier.weight(1f))
+                                CompareImage(first, stringResource(R.string.history_compare_first), currentModelId, { onSelectResult(first) }, Modifier.weight(1f))
+                                CompareImage(second, stringResource(R.string.history_compare_second), currentModelId, { onSelectResult(second) }, Modifier.weight(1f))
                             }
                             Text(stringResource(R.string.history_compare_hint), style = MaterialTheme.typography.bodySmall)
                             CompareRow(stringResource(R.string.history_compare_model), first.modelId, second.modelId)
@@ -102,7 +106,7 @@ internal fun HistoryComparisonDialog(
 }
 
 @Composable
-private fun CompareImage(item: HistoryItem, label: String, modifier: Modifier = Modifier) {
+private fun CompareImage(item: HistoryItem, label: String, currentModelId: String?, onSelect: () -> Unit, modifier: Modifier = Modifier) {
     var failed by remember(item.imageFile) { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelLarge)
@@ -121,6 +125,18 @@ private fun CompareImage(item: HistoryItem, label: String, modifier: Modifier = 
                     onError = { failed = true },
                 )
             }
+        }
+        val canReuse = canReuseComparedSettings(currentModelId, item.modelId)
+        val actionText = stringResource(if (canReuse) R.string.history_compare_use_settings else R.string.history_compare_view_parameters)
+        val actionDescription = stringResource(
+            if (canReuse) R.string.history_compare_use_description else R.string.history_compare_view_description,
+            label,
+        )
+        TextButton(
+            onClick = onSelect,
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = actionDescription },
+        ) {
+            Text(actionText, style = MaterialTheme.typography.labelLarge)
         }
     }
 }

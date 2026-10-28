@@ -15,4 +15,11 @@ class HistoryPageStateTest {
         assertEquals(HistoryPageState.CONTENT, historyPageState(2, LoadState.Loading))
         assertEquals(HistoryPageState.CONTENT, historyPageState(2, LoadState.Error(IllegalStateException())))
     }
+
+    @Test fun comparedSettingsCanOnlyBeAppliedToTheSameModel() {
+        assertEquals(true, canReuseComparedSettings("model-a", "model-a"))
+        assertEquals(false, canReuseComparedSettings("model-a", "model-b"))
+        assertEquals(false, canReuseComparedSettings(null, "model-a"))
+        assertEquals(false, canReuseComparedSettings("", ""))
+    }
 }
