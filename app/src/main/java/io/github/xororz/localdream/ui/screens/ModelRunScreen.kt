@@ -336,6 +336,7 @@ fun ModelRunScreen(
     val historyBulk = remember { ModelRunHistoryBulkController() }
     val isSelectionMode = historyBulk.isSelectionMode
     val selectedIds = historyBulk.selectedIds
+    var compareIds by remember { mutableStateOf<List<Long>?>(null) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var showBatchSaveDialog by remember { mutableStateOf(false) }
     val isBatchSaving = historyBulk.isSaving
@@ -2692,6 +2693,7 @@ fun ModelRunScreen(
                             },
                             onBatchSave = { showBatchSaveDialog = true },
                             onBatchDelete = { showBatchDeleteDialog = true },
+                            onCompare = { compareIds = selectedIds.toList() },
                         )
                     }
                 }
@@ -3146,6 +3148,14 @@ fun ModelRunScreen(
                 showHistoryFilterSheet = false
             },
             onDismiss = { showHistoryFilterSheet = false },
+        )
+    }
+
+    compareIds?.let { ids ->
+        HistoryComparisonDialog(
+            historyManager = historyManager,
+            selectedIds = ids,
+            onDismiss = { compareIds = null },
         )
     }
 

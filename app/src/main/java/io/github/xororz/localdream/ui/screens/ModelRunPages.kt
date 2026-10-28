@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -465,6 +466,7 @@ internal fun ModelRunHistoryPage(
     onToggleSelectAll: () -> Unit,
     onBatchSave: () -> Unit,
     onBatchDelete: () -> Unit,
+    onCompare: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val timestampFormat = remember(locale) {
@@ -744,6 +746,17 @@ internal fun ModelRunHistoryPage(
                                     },
                                     contentDescription = stringResource(if (isAllSelected) R.string.ld_deselect_all else R.string.ld_select_all),
                                 )
+                            }
+                            if (selectedIds.size == 2) {
+                                IconButton(
+                                    onClick = onCompare,
+                                    enabled = !isBatchSaving,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Compare,
+                                        contentDescription = stringResource(R.string.history_compare_action),
+                                    )
+                                }
                             }
                             IconButton(
                                 onClick = onBatchSave,

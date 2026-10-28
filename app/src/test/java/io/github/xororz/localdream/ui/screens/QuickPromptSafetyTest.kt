@@ -22,4 +22,14 @@ class QuickPromptSafetyTest {
         assertEquals("anime", appendQuickPrompt("  ", "anime"))
         assertEquals("person", appendQuickPrompt("person", ""))
     }
+
+    @Test fun undoIsOfferedOnlyWhileBothAppliedFieldsRemainUnedited() {
+        val previous = QuickPrompt("my scene", "my negatives")
+        val applied = QuickPrompt("anime scene", "blurry")
+        val change = QuickPromptUndo(previous, applied)
+        assertTrue(change.canUndo("anime scene", "blurry"))
+        assertFalse(change.canUndo("anime scene edited", "blurry"))
+        assertFalse(change.canUndo("anime scene", "blurry, edited"))
+        assertEquals(previous, change.previous)
+    }
 }

@@ -1,0 +1,21 @@
+<resources>
+    <string name="history_compare_action">Compare selected results</string>
+    <string name="history_compare_title">Compare results</string>
+    <string name="history_compare_first">First result</string>
+    <string name="history_compare_second">Second result</string>
+    <string name="history_compare_hint">Select an image in history to reuse its generation settings.</string>
+    <string name="history_compare_load_failed">Could not load both results. They may have been deleted. Close and select them again.</string>
+    <string name="history_compare_image_missing">Image unavailable</string>
+    <string name="history_compare_model">Model</string>
+    <string name="history_compare_prompt">Prompt</string>
+    <string name="history_compare_negative">Negative prompt</string>
+    <string name="history_compare_steps">Steps</string>
+    <string name="history_compare_size">Size</string>
+    <string name="history_compare_scheduler">Sampler</string>
+    <string name="history_compare_unknown">Not available</string>
+    <string name="history_compare_same">Same</string>
+    <string name="history_compare_different">Different</string>
+    <string name="history_compare_unavailable">Not available</string>
+    <string name="history_compare_empty">Empty</string>
+    <string name="quick_prompt_undo">Undo quick prompt</string>
+</resources>

@@ -47,6 +47,15 @@ internal fun ModelRunPromptFields(
     onDismissTemplates: () -> Unit,
 ) {
     var pendingQuickPrompt by remember { mutableStateOf<QuickPrompt?>(null) }
+    var lastQuickChange by remember { mutableStateOf<QuickPromptUndo?>(null) }
+    fun applyQuickPrompt(prompt: String, negative: String) {
+        lastQuickChange = QuickPromptUndo(
+            previous = QuickPrompt(promptField.text, negativePromptField.text),
+            applied = QuickPrompt(prompt, negative),
+        )
+        onApplyQuickPrompt(prompt, negative)
+    }
+
     val effectiveLabel = when (effectivePromptFormat) {
         PromptFormat.UNIVERSAL -> R.string.quick_prompt_format_universal
         PromptFormat.TAGS -> R.string.quick_prompt_format_tags
@@ -86,7 +95,7 @@ internal fun ModelRunPromptFields(
                     if (requiresQuickPromptConfirmation(promptField.text, negativePromptField.text)) {
                         pendingQuickPrompt = preset
                     } else {
-                        onApplyQuickPrompt(preset.prompt, preset.negativePrompt)
+                        applyQuickPrompt(preset.prompt, preset.negativePrompt)
                     }
                 },
                 selected = false,
@@ -149,6 +158,16 @@ internal fun ModelRunPromptFields(
             )
         },
     )
+    lastQuickChange?.let { change ->
+        if (change.canUndo(promptField.text, negativePromptField.text)) {
+            TextButton(onClick = {
+                onApplyQuickPrompt(change.previous.prompt, change.previous.negativePrompt)
+                lastQuickChange = null
+            }) {
+                Text(stringResource(R.string.quick_prompt_undo))
+            }
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End,
@@ -170,7 +189,7 @@ internal fun ModelRunPromptFields(
             text = { Text(stringResource(R.string.quick_prompt_confirm_message)) },
             confirmButton = {
                 TextButton(onClick = {
-                    onApplyQuickPrompt(
+                    applyQuickPrompt(
                         appendQuickPrompt(promptField.text, preset.prompt),
                         appendQuickPrompt(negativePromptField.text, preset.negativePrompt),
                     )
@@ -183,7 +202,7 @@ internal fun ModelRunPromptFields(
                         Text(stringResource(R.string.quick_prompt_cancel))
                     }
                     TextButton(onClick = {
-                        onApplyQuickPrompt(preset.prompt, preset.negativePrompt)
+                        applyQuickPrompt(preset.prompt, preset.negativePrompt)
                         pendingQuickPrompt = null
                     }) { Text(stringResource(R.string.quick_prompt_replace)) }
                 }

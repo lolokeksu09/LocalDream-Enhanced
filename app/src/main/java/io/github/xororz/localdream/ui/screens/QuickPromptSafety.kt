@@ -17,3 +17,8 @@ internal fun appendQuickPrompt(current: String, addition: String): String {
     val existing = current.trimEnd()
     return existing + (if (existing.endsWith(",")) " " else ", ") + addition.trimStart()
 }
+
+internal data class QuickPromptUndo(val previous: QuickPrompt, val applied: QuickPrompt) {
+    fun canUndo(current: String, currentNegative: String): Boolean =
+        current == applied.prompt && currentNegative == applied.negativePrompt
+}
