@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ld_add_favorite">Add to favorites</string>
+    <string name="ld_remove_favorite">Remove from favorites</string>
+    <string name="ld_report_image">Report image</string>
+    <string name="ld_upscale_image">Upscale image</string>
+    <string name="ld_ultrafix_image">Repair image with UltraFix</string>
+    <string name="ld_save_image">Save image</string>
+    <string name="ld_generated_image">Generated image</string>
+    <string name="ld_recent_image">Recent image</string>
+    <string name="ld_view_parameters">View generation parameters</string>
+    <string name="ld_favorite">Favorite</string>
+    <string name="ld_selected">Selected</string>
+    <string name="ld_exit_selection">Exit selection mode</string>
+    <string name="ld_select_all">Select all</string>
+    <string name="ld_deselect_all">Deselect all</string>
+    <string name="ld_save_selected">Save selected</string>
+    <string name="ld_delete_selected">Delete selected</string>
+    <string name="ld_import_ultrafix">Import image for UltraFix</string>
+    <string name="ld_history_load_error">Could not load history.</string>
+    <string name="ld_history_retry">Retry</string>
+    <string name="ld_history_no_matches">No matching images</string>
+    <string name="ld_history_adjust_filter">Try changing the filters.</string>
+    <string name="ld_history_open_filter">Change filters</string>
+</resources>

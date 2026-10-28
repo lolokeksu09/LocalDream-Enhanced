@@ -2598,6 +2598,8 @@ fun ModelRunScreen(
                                         maxOf(currentWidth, currentHeight, 512)
                                 } == true,
                             ultrafixEnabled = !isRunning && !isUpscaling && !isUltrafixPreparing,
+                            canImportUltrafix = useImg2img && model.isSdxl && cfg == 1f,
+                            onImportUltrafix = { showUltrafixImportDialog = true },
                             // The upscale button also exists on models that
                             // can't run UltraFix (SD1.5 NPU); its long press
                             // only opens the import dialog when the model can.

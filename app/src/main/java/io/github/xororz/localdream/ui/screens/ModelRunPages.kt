@@ -52,6 +52,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -87,7 +90,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import coil.compose.AsyncImage
@@ -110,6 +112,8 @@ internal fun ModelRunResultPage(
     upscaleEnabled: Boolean,
     showUltrafixButton: Boolean,
     ultrafixEnabled: Boolean,
+    canImportUltrafix: Boolean,
+    onImportUltrafix: () -> Unit,
     // Long-pressing either the upscale or the UltraFix button opens the
     // local-image import dialog for UltraFix.
     onUpscaleLongClick: () -> Unit,
@@ -221,7 +225,7 @@ internal fun ModelRunResultPage(
                                                 } else {
                                                     Icons.Default.FavoriteBorder
                                                 },
-                                                contentDescription = "toggle favorite",
+                                                contentDescription = stringResource(if (isFavorite == true) R.string.ld_remove_favorite else R.string.ld_add_favorite),
                                             )
                                         }
                                     }
@@ -232,7 +236,7 @@ internal fun ModelRunResultPage(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Report,
-                                                contentDescription = "report inappropriate content",
+                                                contentDescription = stringResource(R.string.ld_report_image),
                                             )
                                         }
                                     }
@@ -243,7 +247,7 @@ internal fun ModelRunResultPage(
                                             onClick = onUpscaleClick,
                                             onLongClick = onUpscaleLongClick,
                                             icon = Icons.Default.AutoFixHigh,
-                                            contentDescription = "upscale image",
+                                            contentDescription = stringResource(R.string.ld_upscale_image),
                                         )
                                     }
 
@@ -253,7 +257,7 @@ internal fun ModelRunResultPage(
                                             onClick = onUltrafixClick,
                                             onLongClick = onUltrafixLongClick,
                                             icon = Icons.Default.AutoAwesome,
-                                            contentDescription = "ultrafix image",
+                                            contentDescription = stringResource(R.string.ld_ultrafix_image),
                                         )
                                     }
 
@@ -262,7 +266,7 @@ internal fun ModelRunResultPage(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Save,
-                                            contentDescription = "save image",
+                                            contentDescription = stringResource(R.string.ld_save_image),
                                         )
                                     }
                                 }
@@ -301,7 +305,7 @@ internal fun ModelRunResultPage(
                                             .size(coil.size.Size.ORIGINAL)
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "generated image",
+                                        contentDescription = stringResource(R.string.ld_generated_image),
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 }
@@ -353,7 +357,7 @@ internal fun ModelRunResultPage(
                                                 .data(item.imageFile)
                                                 .crossfade(true)
                                                 .build(),
-                                            contentDescription = "thumb",
+                                            contentDescription = stringResource(R.string.ld_recent_image),
                                             modifier = Modifier.fillMaxSize(),
                                         )
                                     }
@@ -391,7 +395,7 @@ internal fun ModelRunResultPage(
                                     )
                                     Icon(
                                         Icons.Default.Info,
-                                        contentDescription = "view details",
+                                        contentDescription = stringResource(R.string.ld_view_parameters),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -428,6 +432,15 @@ internal fun ModelRunResultPage(
                         }
                     }
                 }
+            }
+        }
+        if (canImportUltrafix) {
+            OutlinedButton(
+                onClick = onImportUltrafix,
+                enabled = ultrafixEnabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.ld_import_ultrafix))
             }
         }
     }
@@ -487,9 +500,27 @@ internal fun ModelRunHistoryPage(
         ) {
             // Only show the empty state once the initial load has settled, so
             // it never flashes while the first page is still being fetched.
-            val isEmpty = pagedItems.itemCount == 0 &&
-                pagedItems.loadState.refresh is LoadState.NotLoading
-            if (isEmpty) {
+            val pageState = historyPageState(pagedItems.itemCount, pagedItems.loadState.refresh)
+            val hasExtraFilters = historyFilter.from != null || historyFilter.to != null ||
+                !historyFilter.modes.isNullOrEmpty() || !historyFilter.sizes.isNullOrEmpty() ||
+                !historyFilter.schedulers.isNullOrEmpty() || !historyFilter.devices.isNullOrEmpty() ||
+                !historyFilter.promptSubstring.isNullOrBlank() || !historyFilter.favorites.isNullOrEmpty() ||
+                (!historyFilter.modelIds.isNullOrEmpty() &&
+                    (currentModelId == null || historyFilter.modelIds != setOf(currentModelId)))
+            if (pageState == HistoryPageState.LOADING) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (pageState == HistoryPageState.ERROR) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(stringResource(R.string.ld_history_load_error), style = MaterialTheme.typography.bodyLarge)
+                    TextButton(onClick = { pagedItems.retry() }) { Text(stringResource(R.string.ld_history_retry)) }
+                }
+            } else if (pageState == HistoryPageState.EMPTY) {
                 var emptyVisible by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { emptyVisible = true }
                 val emptyAlpha by animateFloatAsState(
@@ -515,15 +546,20 @@ internal fun ModelRunHistoryPage(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            stringResource(R.string.no_history),
+                            stringResource(if (hasExtraFilters) R.string.ld_history_no_matches else R.string.no_history),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            stringResource(R.string.no_history_hint),
+                            stringResource(if (hasExtraFilters) R.string.ld_history_adjust_filter else R.string.no_history_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (hasExtraFilters) {
+                            TextButton(onClick = onShowFilterSheet) {
+                                Text(stringResource(R.string.ld_history_open_filter))
+                            }
+                        }
                     }
                 }
             } else {
@@ -562,7 +598,7 @@ internal fun ModelRunHistoryPage(
                                         .data(item.imageFile)
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = "Generated image",
+                                    contentDescription = stringResource(R.string.ld_generated_image),
                                     modifier = Modifier.fillMaxSize(),
                                 )
 
@@ -595,7 +631,7 @@ internal fun ModelRunHistoryPage(
                                 if (item.favorite) {
                                     Icon(
                                         imageVector = Icons.Default.Favorite,
-                                        contentDescription = "favorited",
+                                        contentDescription = stringResource(R.string.ld_favorite),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier
                                             .align(Alignment.TopStart)
@@ -657,7 +693,7 @@ internal fun ModelRunHistoryPage(
                                         if (isSelected) {
                                             Icon(
                                                 imageVector = Icons.Default.Check,
-                                                contentDescription = "Selected",
+                                                contentDescription = stringResource(R.string.ld_selected),
                                                 tint = MaterialTheme.colorScheme.onPrimary,
                                                 modifier = Modifier.size(16.dp),
                                             )
@@ -685,7 +721,7 @@ internal fun ModelRunHistoryPage(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Exit selection mode",
+                                contentDescription = stringResource(R.string.ld_exit_selection),
                             )
                         }
                     },
@@ -706,7 +742,7 @@ internal fun ModelRunHistoryPage(
                                     } else {
                                         Icons.Default.CheckCircleOutline
                                     },
-                                    contentDescription = if (isAllSelected) "Deselect all" else "Select all",
+                                    contentDescription = stringResource(if (isAllSelected) R.string.ld_deselect_all else R.string.ld_select_all),
                                 )
                             }
                             IconButton(
@@ -718,7 +754,7 @@ internal fun ModelRunHistoryPage(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Save,
-                                    contentDescription = "Save selected",
+                                    contentDescription = stringResource(R.string.ld_save_selected),
                                 )
                             }
                             IconButton(
@@ -730,7 +766,7 @@ internal fun ModelRunHistoryPage(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete selected",
+                                    contentDescription = stringResource(R.string.ld_delete_selected),
                                 )
                             }
                         }
