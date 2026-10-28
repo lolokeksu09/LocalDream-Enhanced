@@ -218,3 +218,15 @@ internal fun nextQuickPrompt(
     val currentIndex = options.indexOfFirst { it.prompt == currentPrompt }
     return options[(currentIndex + 1) % options.size]
 }
+
+/** Picks a different ready-made idea across styles without overwriting user text. */
+internal fun randomQuickPrompt(
+    currentPrompt: String,
+    format: PromptFormat = PromptFormat.UNIVERSAL,
+    random: kotlin.random.Random = kotlin.random.Random.Default,
+): QuickPrompt {
+    val candidates = QuickPromptCategory.values()
+        .flatMap { quickPromptOptions(it, format) }
+        .filterNot { it.prompt == currentPrompt }
+    return candidates.random(random)
+}

@@ -42,4 +42,24 @@ class QuickPromptOptionsTest {
         assertTrue(sentence.prompt.startsWith("A scene showing "))
         assertNotEquals(tagPrompt, sentence.prompt)
     }
+
+    @Test fun randomIdeasUseSelectedFormatAndAvoidImmediateRepeats() {
+        val random = kotlin.random.Random(42)
+        for (format in PromptFormat.values()) {
+            val allowed = QuickPromptCategory.values().flatMap { quickPromptOptions(it, format) }
+            val seen = mutableSetOf<QuickPrompt>()
+            var current = ""
+            repeat(250) {
+                val next = randomQuickPrompt(current, format, random)
+                assertTrue(next in allowed)
+                assertNotEquals(current, next.prompt)
+                assertTrue(next.negativePrompt.isNotBlank())
+                seen.add(next)
+                current = next.prompt
+            }
+            for (category in QuickPromptCategory.values()) {
+                assertTrue(quickPromptOptions(category, format).any { it in seen })
+            }
+        }
+    }
 }

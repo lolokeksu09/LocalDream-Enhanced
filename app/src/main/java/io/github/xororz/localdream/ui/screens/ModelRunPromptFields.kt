@@ -75,6 +75,18 @@ internal fun ModelRunPromptFields(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        FilterChip(
+            onClick = {
+                val preset = randomQuickPrompt(promptField.text, effectivePromptFormat)
+                if (requiresQuickPromptConfirmation(promptField.text, negativePromptField.text)) {
+                    pendingQuickPrompt = preset
+                } else {
+                    onApplyQuickPrompt(preset.prompt, preset.negativePrompt)
+                }
+            },
+            selected = false,
+            label = { Text(stringResource(R.string.quick_prompt_random_idea)) },
+        )
         listOf(
             QuickPromptCategory.PORTRAIT to R.string.quick_preset_portrait,
             QuickPromptCategory.ANIME to R.string.quick_preset_anime,
