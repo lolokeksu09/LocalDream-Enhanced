@@ -54,36 +54,20 @@ internal fun ModelRunPromptFields(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
-            onClick = {
-                onApplyTemplates(
-                    "masterpiece, high quality portrait, detailed face, soft cinematic lighting, sharp focus",
-                    "blurry, low quality, bad anatomy, extra fingers, watermark",
-                )
-            },
-            selected = false,
-            label = { Text(stringResource(R.string.quick_preset_portrait)) },
-        )
-        FilterChip(
-            onClick = {
-                onApplyTemplates(
-                    "masterpiece, anime illustration, expressive eyes, detailed hair, vibrant colors, clean linework",
-                    "blurry, low quality, bad anatomy, extra fingers, watermark",
-                )
-            },
-            selected = false,
-            label = { Text(stringResource(R.string.quick_preset_anime)) },
-        )
-        FilterChip(
-            onClick = {
-                onApplyTemplates(
-                    "highly detailed realistic photograph, natural lighting, realistic skin texture, sharp focus",
-                    "blurry, low quality, oversaturated, plastic skin, watermark",
-                )
-            },
-            selected = false,
-            label = { Text(stringResource(R.string.quick_preset_realism)) },
-        )
+        listOf(
+            QuickPromptCategory.PORTRAIT to R.string.quick_preset_portrait,
+            QuickPromptCategory.ANIME to R.string.quick_preset_anime,
+            QuickPromptCategory.REALISM to R.string.quick_preset_realism,
+        ).forEach { (category, label) ->
+            FilterChip(
+                onClick = {
+                    val preset = nextQuickPrompt(category, promptField.text)
+                    onApplyTemplates(preset.prompt, preset.negativePrompt)
+                },
+                selected = false,
+                label = { Text(stringResource(label)) },
+            )
+        }
     }
     ControlledPromptTagTextField(
         controller = negativePromptField,
