@@ -3,7 +3,7 @@
     <string name="history_compare_title">Compare results</string>
     <string name="history_compare_first">First result</string>
     <string name="history_compare_second">Second result</string>
-    <string name="history_compare_hint">Select an image in history to reuse its generation settings.</string>
+    <string name="history_compare_hint">To reuse settings, close comparison, exit selection, then open a result in history.</string>
     <string name="history_compare_load_failed">Could not load both results. They may have been deleted. Close and select them again.</string>
     <string name="history_compare_image_missing">Image unavailable</string>
     <string name="history_compare_model">Model</string>

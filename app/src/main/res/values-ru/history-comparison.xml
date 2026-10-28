@@ -3,7 +3,7 @@
     <string name="history_compare_title">Сравнение результатов</string>
     <string name="history_compare_first">Первый результат</string>
     <string name="history_compare_second">Второй результат</string>
-    <string name="history_compare_hint">Выберите изображение в истории, чтобы повторить его настройки генерации.</string>
+    <string name="history_compare_hint">Чтобы повторить настройки, закройте сравнение, выйдите из выбора и откройте результат в истории.</string>
     <string name="history_compare_load_failed">Не удалось загрузить оба результата. Возможно, они удалены. Закройте окно и выберите их снова.</string>
     <string name="history_compare_image_missing">Изображение недоступно</string>
     <string name="history_compare_model">Модель</string>
