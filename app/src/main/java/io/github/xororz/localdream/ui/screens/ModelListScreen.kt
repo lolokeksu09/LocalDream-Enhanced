@@ -1189,17 +1189,27 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = if (searchQuery.isNotBlank() || catalogFilter != ModelCatalogFilter.ALL) {
-                                            stringResource(R.string.no_models_match_search)
-                                        } else if (page == 0) {
-                                            stringResource(R.string.no_cpu_models)
-                                        } else {
-                                            stringResource(R.string.no_npu_models)
+                                        text = when {
+                                            searchQuery.isNotBlank() -> stringResource(R.string.no_models_match_search)
+                                            catalogFilter == ModelCatalogFilter.INSTALLED -> stringResource(R.string.catalog_no_installed)
+                                            catalogFilter == ModelCatalogFilter.AVAILABLE -> stringResource(R.string.catalog_no_available)
+                                            catalogFilter == ModelCatalogFilter.PINNED -> stringResource(R.string.catalog_no_pinned)
+                                            page == 0 -> stringResource(R.string.no_cpu_models)
+                                            else -> stringResource(R.string.no_npu_models)
                                         },
                                         style = MaterialTheme.typography.bodyLarge,
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (searchQuery.isBlank() && catalogFilter == ModelCatalogFilter.PINNED) {
+                                        Text(
+                                            text = stringResource(R.string.catalog_pin_hint),
+                                            modifier = Modifier.padding(top = 8.dp, start = 24.dp, end = 24.dp),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textAlign = TextAlign.Center,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }

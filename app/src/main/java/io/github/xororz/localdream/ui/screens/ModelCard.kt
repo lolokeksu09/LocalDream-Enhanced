@@ -167,10 +167,11 @@ fun ModelCard(
                         )
                         InfoChip(
                             icon = Icons.Default.AspectRatio,
-                            label = if (model.runOnCpu) {
-                                "128~512"
-                            } else {
-                                "${model.generationSize}×${model.generationSize}"
+                            label = when {
+                                model.supportsFreeResolution -> stringResource(R.string.catalog_variable_resolution)
+                                model.usesFixedCanvas -> "1024×1024"
+                                model.runOnCpu -> "128~512"
+                                else -> "${model.generationSize}×${model.generationSize}"
                             },
                             color = secondaryContent,
                         )
@@ -196,7 +197,7 @@ fun ModelCard(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "downloaded",
+                                        contentDescription = null,
                                         modifier = Modifier.size(17.dp),
                                     )
                                     Text(

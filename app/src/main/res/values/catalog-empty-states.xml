@@ -1,0 +1,7 @@
+<resources>
+    <string name="catalog_variable_resolution">Adjustable</string>
+    <string name="catalog_no_installed">No installed models</string>
+    <string name="catalog_no_available">No models available to download</string>
+    <string name="catalog_no_pinned">No pinned models</string>
+    <string name="catalog_pin_hint">Touch and hold an installed model, then tap the pin icon.</string>
+</resources>

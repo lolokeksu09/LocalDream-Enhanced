@@ -1,0 +1,7 @@
+<resources>
+    <string name="catalog_variable_resolution">Настраивается</string>
+    <string name="catalog_no_installed">Нет установленных моделей</string>
+    <string name="catalog_no_available">Нет моделей для скачивания</string>
+    <string name="catalog_no_pinned">Нет закреплённых моделей</string>
+    <string name="catalog_pin_hint">Зажмите установленную модель, затем нажмите значок закрепления.</string>
+</resources>
