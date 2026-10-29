@@ -9,10 +9,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -404,21 +400,11 @@ fun UpscaleScreen(navController: NavController, modifier: Modifier = Modifier) {
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier.padding(32.dp),
                             ) {
-                                val iconAlpha = remember { Animatable(0.4f) }
-                                LaunchedEffect(Unit) {
-                                    iconAlpha.animateTo(
-                                        targetValue = 0.8f,
-                                        animationSpec = infiniteRepeatable(
-                                            animation = tween(1200),
-                                            repeatMode = RepeatMode.Reverse,
-                                        ),
-                                    )
-                                }
                                 Icon(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = stringResource(R.string.add_image),
                                     modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = iconAlpha.value),
+                                    tint = MaterialTheme.colorScheme.primary,
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
@@ -485,38 +471,19 @@ fun UpscaleScreen(navController: NavController, modifier: Modifier = Modifier) {
                     }
                 }
 
-                val fabEnabled = selectedBitmap != null && !isUpscaling
-                val fabContainerColor by animateColorAsState(
-                    targetValue = if (fabEnabled) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerHighest
-                    },
-                    animationSpec = tween(Motion.DurationMedium),
-                    label = "FabContainerColor",
-                )
-                val fabContentColor by animateColorAsState(
-                    targetValue = if (fabEnabled) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    },
-                    animationSpec = tween(Motion.DurationMedium),
-                    label = "FabContentColor",
-                )
-                FloatingActionButton(
-                    onClick = {
-                        if (fabEnabled) {
-                            showUpscalerDialog = true
-                        }
-                    },
-                    containerColor = fabContainerColor,
-                    contentColor = fabContentColor,
+                val canUpscale = selectedBitmap != null && !isUpscaling
+                FilledTonalButton(
+                    onClick = { showUpscalerDialog = true },
+                    enabled = canUpscale,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
                         imageVector = Icons.Default.AutoFixHigh,
-                        contentDescription = stringResource(R.string.upscale),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
                     )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.upscale))
                 }
 
                 AnimatedVisibility(

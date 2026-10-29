@@ -184,12 +184,6 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                     icon = Icons.Default.Devices,
                     title = stringResource(R.string.remote_host_section),
                 )
-                Text(
-                    stringResource(R.string.remote_host_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp),
-                )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -202,6 +196,11 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Text(
+                            stringResource(R.string.remote_host_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         if (hostRunning) {
                             Text(
                                 stringResource(R.string.remote_host_addresses),
@@ -281,12 +280,6 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                     icon = Icons.Default.Wifi,
                     title = stringResource(R.string.remote_connect_section),
                 )
-                Text(
-                    stringResource(R.string.remote_connect_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp),
-                )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -299,6 +292,11 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Text(
+                            stringResource(R.string.remote_connect_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         val connection = remoteRepository.connection
                         if (connection != null && !showRePair) {
                             Text(
@@ -313,22 +311,22 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 OutlinedButton(
                                     onClick = {
                                         scope.launch { remoteRepository.refresh() }
                                     },
                                     enabled = !remoteRepository.refreshing,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(stringResource(R.string.remote_refresh_models))
                                 }
                                 OutlinedButton(
                                     onClick = { remoteRepository.disconnect() },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(stringResource(R.string.remote_disconnect))
                                 }
