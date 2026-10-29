@@ -285,7 +285,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior =
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
 
     var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
     var showFileManagerDialog by remember { mutableStateOf(false) }
@@ -835,11 +835,12 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     Scaffold(
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = "Local Dream✨",
+                            text = "Local Dream",
+                            style = MaterialTheme.typography.titleLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -917,6 +918,20 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                         // A single overflow menu keeps the collapsed large top
                         // bar's title from being squeezed by multiple action
                         // icons competing for width.
+                        if (!remoteActive) {
+                            IconButton(onClick = {
+                                if (pagerState.currentPage == 0) showCustomModelDialog = true
+                                else showCustomNpuModelDialog = true
+                            }) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = stringResource(
+                                        if (pagerState.currentPage == 0) R.string.add_custom_model
+                                        else R.string.add_custom_npu_model,
+                                    ),
+                                )
+                            }
+                        }
                         var menuExpanded by remember { mutableStateOf(false) }
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(
@@ -1036,16 +1051,18 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
             }
 
             if (!isSelectionMode) {
-                OutlinedTextField(
+                TextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     shape = MaterialTheme.shapes.large,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
                     ),
                     placeholder = { Text(stringResource(R.string.search_models)) },
                     leadingIcon = {
@@ -1080,26 +1097,6 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (page == 0 && !remoteActive) {
-                        item {
-                            AddCustomModelButton(
-                                onClick = { showCustomModelDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-
-                    if (page == 1 && !remoteActive) {
-                        item {
-                            AddModelOutlinedCard(
-                                label = stringResource(R.string.add_custom_npu_model),
-                                accent = true,
-                                onClick = { showCustomNpuModelDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-
                     items(
                         items = models,
                         key = { model -> model.id },
@@ -1218,17 +1215,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                TabPageIndicator(
-                    pageCount = 2,
-                    currentPage = pagerState.currentPage,
-                )
-            }
+
         }
     }
 

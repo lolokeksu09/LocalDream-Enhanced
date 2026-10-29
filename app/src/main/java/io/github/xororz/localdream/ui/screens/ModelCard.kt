@@ -24,7 +24,7 @@ import io.github.xororz.localdream.R
 import io.github.xororz.localdream.data.Model
 import io.github.xororz.localdream.ui.theme.Motion
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun ModelCard(
     model: Model,
@@ -91,29 +91,6 @@ fun ModelCard(
                     },
                 ),
         ) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp),
-                shape = RoundedCornerShape(50),
-                color = if (model.runOnCpu) {
-                    MaterialTheme.colorScheme.tertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.primaryContainer
-                },
-                contentColor = if (model.runOnCpu) {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                },
-            ) {
-                Text(
-                    text = if (model.runOnCpu) "CPU" else "NPU",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                )
-            }
 
             Column(
                 modifier = Modifier
@@ -121,8 +98,9 @@ fun ModelCard(
                     .padding(18.dp),
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (isPinned) {
                         Icon(
@@ -137,8 +115,29 @@ fun ModelCard(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Medium,
                         color = primaryContent,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.weight(1f),
                     )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = if (model.runOnCpu) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                    contentColor = if (model.runOnCpu) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                ) {
+                    Text(
+                        text = if (model.runOnCpu) "CPU" else "NPU",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                }
+    
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -150,32 +149,26 @@ fun ModelCard(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        InfoChip(
-                            icon = Icons.Default.SdStorage,
-                            label = model.approximateSize,
-                            color = secondaryContent,
-                        )
-                        InfoChip(
-                            icon = Icons.Default.AspectRatio,
-                            label = when {
-                                model.supportsFreeResolution -> stringResource(R.string.catalog_variable_resolution)
-                                model.usesFixedCanvas -> "1024×1024"
-                                model.runOnCpu -> "128~512"
-                                else -> "${model.generationSize}×${model.generationSize}"
-                            },
-                            color = secondaryContent,
-                        )
-                    }
+                    InfoChip(
+                        icon = Icons.Default.SdStorage,
+                        label = model.approximateSize,
+                        color = secondaryContent,
+                    )
+                    InfoChip(
+                        icon = Icons.Default.AspectRatio,
+                        label = when {
+                            model.supportsFreeResolution -> stringResource(R.string.catalog_variable_resolution)
+                            model.usesFixedCanvas -> "1024×1024"
+                            model.runOnCpu -> "128~512"
+                            else -> "${model.generationSize}×${model.generationSize}"
+                        },
+                        color = secondaryContent,
+                    )
 
                     when {
                         model.isDownloaded -> {
