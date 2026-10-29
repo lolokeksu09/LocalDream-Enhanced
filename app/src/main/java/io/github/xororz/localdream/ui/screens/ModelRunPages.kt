@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -35,7 +34,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -470,7 +468,9 @@ internal fun ModelRunHistoryPage(
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val timestampFormat = remember(locale) {
-        java.text.SimpleDateFormat("MM/dd HH:mm", locale)
+        java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, locale,
+        )
     }
     // Handle back button in selection mode
     BackHandler(enabled = isSelectionMode && !isBatchSaving) {
@@ -567,7 +567,10 @@ internal fun ModelRunHistoryPage(
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, top = 16.dp, end = 16.dp,
+                        bottom = if (isSelectionMode) 112.dp else 16.dp,
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
@@ -581,125 +584,100 @@ internal fun ModelRunHistoryPage(
                         val item = pagedItems[index] ?: return@items
                         val isSelected = item.id in selectedIds
                         Card(
-                            modifier = Modifier.aspectRatio(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 2.dp,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainer
+                                },
                             ),
                         ) {
-                            // Clickable inside the card so its ripple is clipped
-                            // to the rounded shape (square corners otherwise).
-                            Box(
-                                modifier = Modifier.combinedClickable(
-                                    onClick = { onItemClick(item) },
-                                    onLongClick = { onItemLongClick(item) },
-                                ),
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { onItemClick(item) },
+                                        onLongClick = { onItemLongClick(item) },
+                                    ),
                             ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(item.imageFile)
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = stringResource(R.string.ld_generated_image),
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-
-                                // Keeps timestamp and selection controls readable over bright images.
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color.Black.copy(alpha = 0.58f),
-                                                ),
-                                            ),
-                                        ),
-                                )
-
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                MaterialTheme.colorScheme.primary.copy(
-                                                    alpha = 0.2f,
-                                                ),
-                                            ),
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                ) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(item.imageFile)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = stringResource(R.string.ld_generated_image),
+                                        modifier = Modifier.fillMaxSize(),
                                     )
+                                    if (isSelectionMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(8.dp)
+                                                .size(24.dp)
+                                                .background(
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)
+                                                    },
+                                                    shape = CircleShape,
+                                                )
+                                                .border(
+                                                    width = 2.dp,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        Color.White
+                                                    },
+                                                    shape = CircleShape,
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = stringResource(R.string.ld_selected),
+                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier.size(16.dp),
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-
-                                if (item.favorite) {
-                                    Icon(
-                                        imageVector = Icons.Default.Favorite,
-                                        contentDescription = stringResource(R.string.ld_favorite),
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier
-                                            .align(Alignment.TopStart)
-                                            .padding(6.dp)
-                                            .size(16.dp),
-                                    )
-                                }
-
-                                // Timestamp overlay
-                                Surface(
-                                    modifier = Modifier.align(Alignment.BottomStart),
-                                    shape = RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 4.dp,
-                                        bottomStart = 12.dp,
-                                        bottomEnd = 0.dp,
-                                    ),
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh
-                                        .copy(alpha = 0.8f),
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     Text(
                                         text = remember(item.timestamp, locale) {
                                             timestampFormat.format(java.util.Date(item.timestamp))
                                         },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(
-                                            horizontal = 6.dp,
-                                            vertical = 3.dp,
-                                        ),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.weight(1f),
                                     )
-                                }
-
-                                // Selection indicator
-                                if (isSelectionMode) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(8.dp)
-                                            .size(24.dp)
-                                            .background(
-                                                color = if (isSelected) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)
-                                                },
-                                                shape = CircleShape,
-                                            )
-                                            .border(
-                                                width = 2.dp,
-                                                color = if (isSelected) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    Color.White
-                                                },
-                                                shape = CircleShape,
-                                            ),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = stringResource(R.string.ld_selected),
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        }
+                                    if (item.favorite) {
+                                        Icon(
+                                            imageVector = Icons.Default.Favorite,
+                                            contentDescription = stringResource(R.string.ld_favorite),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp),
+                                        )
                                     }
                                 }
                             }
