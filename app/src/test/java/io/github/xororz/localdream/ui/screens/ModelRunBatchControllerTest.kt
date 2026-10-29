@@ -65,4 +65,20 @@ class ModelRunBatchControllerTest {
         assertFalse(finished)
         assertTrue(job.isCancelled)
     }
+
+    @Test fun seedModesProtectAgainstInvalidOrReservedValues() {
+        assertEquals(SeedMode.RANDOM, seedMode(""))
+        assertEquals(SeedMode.RANDOM, seedMode("  "))
+        assertEquals(SeedMode.FIXED, seedMode("0"))
+        assertEquals(SeedMode.FIXED, seedMode("9223372036854775807"))
+        assertEquals(SeedMode.INVALID, seedMode("-1"))
+        assertEquals(SeedMode.INVALID, seedMode("abc"))
+        assertEquals(SeedMode.INVALID, seedMode("9223372036854775808"))
+    }
+
+    @Test fun lockPrefersDisplayedResultAndFallsBackToNewSeed() {
+        assertEquals("123", seedForLock(123L) { 777L })
+        assertEquals("777", seedForLock(null) { 777L })
+        assertEquals("777", seedForLock(-1L) { 777L })
+    }
 }

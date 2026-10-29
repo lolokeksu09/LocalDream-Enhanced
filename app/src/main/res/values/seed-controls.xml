@@ -1,0 +1,11 @@
+<resources>
+    <string name="seed_quick_title">Seed</string>
+    <string name="seed_random_last_hint">Random each time. Lock the seed from the displayed result to make variations.</string>
+    <string name="seed_random_new_hint">Random each time. Lock a new seed to make variations.</string>
+    <string name="seed_lock">Lock seed</string>
+    <string name="seed_fixed_value">Fixed seed: %1$s</string>
+    <string name="seed_fixed_batch_hint">A fixed seed produces one image per run. Edit the number in Advanced settings.</string>
+    <string name="seed_make_random">Use random seed</string>
+    <string name="seed_invalid">Enter a non-negative whole number up to 9223372036854775807, or clear the field.</string>
+    <string name="seed_clear">Clear seed</string>
+</resources>

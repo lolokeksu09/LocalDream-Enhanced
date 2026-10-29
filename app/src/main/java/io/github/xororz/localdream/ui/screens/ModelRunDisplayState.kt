@@ -38,7 +38,7 @@ internal class ModelRunDisplayState(modelId: String) {
     /** Completion does not clear isRunning: a multi-image batch may continue. */
     fun onComplete(seed: Long?) {
         intermediateBitmap = null
-        if (seed != null) returnedSeed = seed
+        returnedSeed = seed
         progress = 0f
     }
 

@@ -1,0 +1,11 @@
+<resources>
+    <string name="seed_quick_title">Seed</string>
+    <string name="seed_random_last_hint">Каждый раз случайный. Зафиксируйте seed показанного результата, чтобы создать вариации.</string>
+    <string name="seed_random_new_hint">Каждый раз случайный. Зафиксируйте новое число, чтобы создавать вариации.</string>
+    <string name="seed_lock">Зафиксировать seed</string>
+    <string name="seed_fixed_value">Фиксированный seed: %1$s</string>
+    <string name="seed_fixed_batch_hint">С фиксированным seed создаётся одно изображение за запуск. Число можно изменить в дополнительных настройках.</string>
+    <string name="seed_make_random">Случайный seed</string>
+    <string name="seed_invalid">Введите целое число от 0 до 9223372036854775807 или очистите поле.</string>
+    <string name="seed_clear">Очистить seed</string>
+</resources>

@@ -1937,6 +1937,12 @@ fun ModelRunScreen(
                             },
                         )
 
+                        SeedQuickControl(
+                            seed = seed,
+                            displayedSeed = if (generationParamsModelId == modelId) generationParams?.seed else null,
+                            onSeedChange = onSeedChange,
+                        )
+
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
@@ -2024,6 +2030,7 @@ fun ModelRunScreen(
                             },
                             enabled = serviceState !is GenerationState.Progress &&
                                 !isRunning && !isUpscaling && !isUltrafixPreparing &&
+                                seedMode(seed) != SeedMode.INVALID &&
                                 (selectedImageUri == null || base64EncodeDone),
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,

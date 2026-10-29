@@ -448,6 +448,12 @@ internal fun AdvancedSettingsDialog(
                     OutlinedTextField(
                         value = seed,
                         onValueChange = onSeedChange,
+                        isError = seedMode(seed) == SeedMode.INVALID,
+                        supportingText = {
+                            if (seedMode(seed) == SeedMode.INVALID) {
+                                Text(stringResource(R.string.seed_invalid))
+                            }
+                        },
                         label = { Text(stringResource(R.string.random_seed)) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
@@ -459,7 +465,7 @@ internal fun AdvancedSettingsDialog(
                                 IconButton(onClick = { onSeedChange("") }) {
                                     Icon(
                                         Icons.Default.Clear,
-                                        contentDescription = "clear",
+                                        contentDescription = stringResource(R.string.seed_clear),
                                     )
                                 }
                             }

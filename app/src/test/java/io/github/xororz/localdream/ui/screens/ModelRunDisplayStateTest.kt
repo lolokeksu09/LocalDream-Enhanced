@@ -27,7 +27,7 @@ class ModelRunDisplayStateTest {
         assertEquals(0f, state.progress, 0.0001f)
         assertEquals(42L, state.returnedSeed)
         state.onComplete(null)
-        assertEquals(42L, state.returnedSeed)
+        assertNull(state.returnedSeed)
         state.onIdle()
         assertFalse(state.isRunning)
     }
