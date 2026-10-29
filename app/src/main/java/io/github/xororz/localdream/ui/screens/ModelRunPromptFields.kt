@@ -74,42 +74,13 @@ internal fun ModelRunPromptFields(
             )
         },
     )
-    Text(
-        text = stringResource(R.string.quick_prompt_styles_title),
-        style = MaterialTheme.typography.labelLarge,
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        listOf(
-            QuickPromptCategory.PORTRAIT to R.string.quick_preset_portrait,
-            QuickPromptCategory.ANIME to R.string.quick_preset_anime,
-            QuickPromptCategory.REALISM to R.string.quick_preset_realism,
-        ).forEach { (category, label) ->
-            FilterChip(
-                onClick = {
-                    val preset = nextQuickPrompt(category, promptField.text, effectivePromptFormat)
-                    if (requiresQuickPromptConfirmation(promptField.text, negativePromptField.text)) {
-                        pendingQuickPrompt = preset
-                    } else {
-                        applyQuickPrompt(preset.prompt, preset.negativePrompt)
-                    }
-                },
-                selected = false,
-                label = { Text(stringResource(label)) },
-            )
-        }
-    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(R.string.quick_prompt_format_title), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.quick_prompt_styles_title), style = MaterialTheme.typography.titleSmall)
             Text(
                 stringResource(R.string.quick_prompt_format_active, stringResource(effectiveLabel)),
                 style = MaterialTheme.typography.bodySmall,
@@ -143,6 +114,31 @@ internal fun ModelRunPromptFields(
                     )
                 }
             }
+        }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(
+            QuickPromptCategory.PORTRAIT to R.string.quick_preset_portrait,
+            QuickPromptCategory.ANIME to R.string.quick_preset_anime,
+            QuickPromptCategory.REALISM to R.string.quick_preset_realism,
+        ).forEach { (category, label) ->
+            FilterChip(
+                onClick = {
+                    val preset = nextQuickPrompt(category, promptField.text, effectivePromptFormat)
+                    if (requiresQuickPromptConfirmation(promptField.text, negativePromptField.text)) {
+                        pendingQuickPrompt = preset
+                    } else {
+                        applyQuickPrompt(preset.prompt, preset.negativePrompt)
+                    }
+                },
+                selected = false,
+                label = { Text(stringResource(label)) },
+            )
         }
     }
     ControlledPromptTagTextField(

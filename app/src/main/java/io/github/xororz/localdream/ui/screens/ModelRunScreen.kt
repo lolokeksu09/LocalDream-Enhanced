@@ -87,6 +87,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -122,6 +123,10 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -1655,6 +1660,7 @@ fun ModelRunScreen(
     }
 
     // === Page Composable Functions ===
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
     @Composable
     fun PromptPage() {
         Column(
@@ -1674,25 +1680,30 @@ fun ModelRunScreen(
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
             ) {
-                ElevatedCard(
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Row(
+                        androidx.compose.foundation.layout.FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            itemVerticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 stringResource(R.string.prompt_settings),
                                 style = MaterialTheme.typography.titleMedium,
                             )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                            androidx.compose.foundation.layout.FlowRow(
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                itemVerticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (useImg2img) {
                                     // Native edit models take a base image and any number of
@@ -1925,6 +1936,8 @@ fun ModelRunScreen(
                             onDismissTemplates = { showPromptTemplates = false },
                         )
 
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                         GenerationQuickSettings(
                             steps = steps,
                             cfg = cfg,
@@ -1936,6 +1949,8 @@ fun ModelRunScreen(
                                 saveAllFields()
                             },
                         )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                         SeedQuickControl(
                             seed = seed,
@@ -2519,6 +2534,10 @@ fun ModelRunScreen(
                             tabs.forEachIndexed { index, label ->
                                 val selected = pagerState.currentPage == index
                                 TextButton(
+                                    modifier = Modifier.semantics {
+                                        role = Role.Tab
+                                        this.selected = selected
+                                    },
                                     onClick = {
                                         coroutineScope.launch {
                                             focusManager.clearFocus()
