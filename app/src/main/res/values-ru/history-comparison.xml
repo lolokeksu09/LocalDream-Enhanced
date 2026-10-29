@@ -1,0 +1,25 @@
+<resources>
+    <string name="history_compare_action">Сравнить выбранные результаты</string>
+    <string name="history_compare_title">Сравнение результатов</string>
+    <string name="history_compare_first">Первый результат</string>
+    <string name="history_compare_second">Второй результат</string>
+    <string name="history_compare_hint">Выберите действие под нужным результатом.</string>
+    <string name="history_compare_load_failed">Не удалось загрузить оба результата. Возможно, они удалены. Закройте окно и выберите их снова.</string>
+    <string name="history_compare_image_missing">Изображение недоступно</string>
+    <string name="history_compare_model">Модель</string>
+    <string name="history_compare_prompt">Промпт</string>
+    <string name="history_compare_negative">Негативный промпт</string>
+    <string name="history_compare_steps">Шаги</string>
+    <string name="history_compare_size">Размер</string>
+    <string name="history_compare_scheduler">Сэмплер</string>
+    <string name="history_compare_unknown">Нет данных</string>
+    <string name="history_compare_same">Совпадает</string>
+    <string name="history_compare_different">Различается</string>
+    <string name="history_compare_unavailable">Нет данных</string>
+    <string name="history_compare_empty">Пусто</string>
+    <string name="quick_prompt_undo">Отменить быстрый промпт</string>
+    <string name="history_compare_use_settings">Использовать</string>
+    <string name="history_compare_view_parameters">Параметры</string>
+    <string name="history_compare_use_description">Использовать настройки: %1$s</string>
+    <string name="history_compare_view_description">Посмотреть параметры: %1$s</string>
+</resources>

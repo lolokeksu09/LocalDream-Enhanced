@@ -4,10 +4,7 @@ import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +31,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -42,6 +39,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -50,6 +48,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -77,7 +78,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +85,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import coil.compose.AsyncImage
@@ -108,6 +107,8 @@ internal fun ModelRunResultPage(
     upscaleEnabled: Boolean,
     showUltrafixButton: Boolean,
     ultrafixEnabled: Boolean,
+    canImportUltrafix: Boolean,
+    onImportUltrafix: () -> Unit,
     // Long-pressing either the upscale or the UltraFix button opens the
     // local-image import dialog for UltraFix.
     onUpscaleLongClick: () -> Unit,
@@ -147,25 +148,10 @@ internal fun ModelRunResultPage(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        val iconScale = remember { Animatable(1f) }
-                        LaunchedEffect(Unit) {
-                            iconScale.animateTo(
-                                targetValue = 1.1f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(1500),
-                                    repeatMode = RepeatMode.Reverse,
-                                ),
-                            )
-                        }
                         Icon(
                             imageVector = Icons.Default.Image,
                             contentDescription = null,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .graphicsLayer(
-                                    scaleX = iconScale.value,
-                                    scaleY = iconScale.value,
-                                ),
+                            modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                         Text(
@@ -195,79 +181,6 @@ internal fun ModelRunResultPage(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                stringResource(R.string.result_tab),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            currentBitmap?.let { bitmap ->
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        8.dp,
-                                    ),
-                                ) {
-                                    if (isFavorite != null) {
-                                        FilledTonalIconButton(
-                                            onClick = onFavoriteClick,
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isFavorite) {
-                                                    Icons.Default.Favorite
-                                                } else {
-                                                    Icons.Default.FavoriteBorder
-                                                },
-                                                contentDescription = "toggle favorite",
-                                            )
-                                        }
-                                    }
-
-                                    if (showReportButton) {
-                                        FilledTonalIconButton(
-                                            onClick = onReportClick,
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Report,
-                                                contentDescription = "report inappropriate content",
-                                            )
-                                        }
-                                    }
-
-                                    if (showUpscaleButton) {
-                                        LongPressableTonalIconButton(
-                                            enabled = upscaleEnabled,
-                                            onClick = onUpscaleClick,
-                                            onLongClick = onUpscaleLongClick,
-                                            icon = Icons.Default.AutoFixHigh,
-                                            contentDescription = "upscale image",
-                                        )
-                                    }
-
-                                    if (showUltrafixButton) {
-                                        LongPressableTonalIconButton(
-                                            enabled = ultrafixEnabled,
-                                            onClick = onUltrafixClick,
-                                            onLongClick = onUltrafixLongClick,
-                                            icon = Icons.Default.AutoAwesome,
-                                            contentDescription = "ultrafix image",
-                                        )
-                                    }
-
-                                    FilledTonalIconButton(
-                                        onClick = { onSaveClick(bitmap) },
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Save,
-                                            contentDescription = "save image",
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
                         // The shadowed Surface stays outside AnimatedContent: a
                         // drop shadow rendered inside the crossfade's alpha layer
                         // composites with a rectangular outline and flashes square
@@ -300,9 +213,77 @@ internal fun ModelRunResultPage(
                                             .size(coil.size.Size.ORIGINAL)
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "generated image",
+                                        contentDescription = stringResource(R.string.ld_generated_image),
                                         modifier = Modifier.fillMaxSize(),
                                     )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            currentBitmap?.let { bitmap ->
+                                Row(
+                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    if (isFavorite != null) {
+                                        FilledTonalIconButton(
+                                            onClick = onFavoriteClick,
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isFavorite) {
+                                                    Icons.Default.Favorite
+                                                } else {
+                                                    Icons.Default.FavoriteBorder
+                                                },
+                                                contentDescription = stringResource(if (isFavorite == true) R.string.ld_remove_favorite else R.string.ld_add_favorite),
+                                            )
+                                        }
+                                    }
+
+                                    if (showReportButton) {
+                                        FilledTonalIconButton(
+                                            onClick = onReportClick,
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Report,
+                                                contentDescription = stringResource(R.string.ld_report_image),
+                                            )
+                                        }
+                                    }
+
+                                    if (showUpscaleButton) {
+                                        LongPressableTonalIconButton(
+                                            enabled = upscaleEnabled,
+                                            onClick = onUpscaleClick,
+                                            onLongClick = onUpscaleLongClick,
+                                            icon = Icons.Default.AutoFixHigh,
+                                            contentDescription = stringResource(R.string.ld_upscale_image),
+                                        )
+                                    }
+
+                                    if (showUltrafixButton) {
+                                        LongPressableTonalIconButton(
+                                            enabled = ultrafixEnabled,
+                                            onClick = onUltrafixClick,
+                                            onLongClick = onUltrafixLongClick,
+                                            icon = Icons.Default.AutoAwesome,
+                                            contentDescription = stringResource(R.string.ld_ultrafix_image),
+                                        )
+                                    }
+
+                                    FilledTonalIconButton(
+                                        onClick = { onSaveClick(bitmap) },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Save,
+                                            contentDescription = stringResource(R.string.ld_save_image),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -352,7 +333,7 @@ internal fun ModelRunResultPage(
                                                 .data(item.imageFile)
                                                 .crossfade(true)
                                                 .build(),
-                                            contentDescription = "thumb",
+                                            contentDescription = stringResource(R.string.ld_recent_image),
                                             modifier = Modifier.fillMaxSize(),
                                         )
                                     }
@@ -362,7 +343,14 @@ internal fun ModelRunResultPage(
 
                         Card(
                             onClick = onShowParameters,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = MaterialTheme.shapes.medium,
+                                ),
+                            shape = MaterialTheme.shapes.medium,
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             ),
@@ -383,7 +371,7 @@ internal fun ModelRunResultPage(
                                     )
                                     Icon(
                                         Icons.Default.Info,
-                                        contentDescription = "view details",
+                                        contentDescription = stringResource(R.string.ld_view_parameters),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -422,6 +410,15 @@ internal fun ModelRunResultPage(
                 }
             }
         }
+        if (canImportUltrafix) {
+            OutlinedButton(
+                onClick = onImportUltrafix,
+                enabled = ultrafixEnabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.ld_import_ultrafix))
+            }
+        }
     }
 }
 
@@ -444,10 +441,13 @@ internal fun ModelRunHistoryPage(
     onToggleSelectAll: () -> Unit,
     onBatchSave: () -> Unit,
     onBatchDelete: () -> Unit,
+    onCompare: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val timestampFormat = remember(locale) {
-        java.text.SimpleDateFormat("MM/dd HH:mm", locale)
+        java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, locale,
+        )
     }
     // Handle back button in selection mode
     BackHandler(enabled = isSelectionMode && !isBatchSaving) {
@@ -479,9 +479,27 @@ internal fun ModelRunHistoryPage(
         ) {
             // Only show the empty state once the initial load has settled, so
             // it never flashes while the first page is still being fetched.
-            val isEmpty = pagedItems.itemCount == 0 &&
-                pagedItems.loadState.refresh is LoadState.NotLoading
-            if (isEmpty) {
+            val pageState = historyPageState(pagedItems.itemCount, pagedItems.loadState.refresh)
+            val hasExtraFilters = historyFilter.from != null || historyFilter.to != null ||
+                !historyFilter.modes.isNullOrEmpty() || !historyFilter.sizes.isNullOrEmpty() ||
+                !historyFilter.schedulers.isNullOrEmpty() || !historyFilter.devices.isNullOrEmpty() ||
+                !historyFilter.promptSubstring.isNullOrBlank() || !historyFilter.favorites.isNullOrEmpty() ||
+                (!historyFilter.modelIds.isNullOrEmpty() &&
+                    (currentModelId == null || historyFilter.modelIds != setOf(currentModelId)))
+            if (pageState == HistoryPageState.LOADING) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (pageState == HistoryPageState.ERROR) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(stringResource(R.string.ld_history_load_error), style = MaterialTheme.typography.bodyLarge)
+                    TextButton(onClick = { pagedItems.retry() }) { Text(stringResource(R.string.ld_history_retry)) }
+                }
+            } else if (pageState == HistoryPageState.EMPTY) {
                 var emptyVisible by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { emptyVisible = true }
                 val emptyAlpha by animateFloatAsState(
@@ -507,21 +525,29 @@ internal fun ModelRunHistoryPage(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            stringResource(R.string.no_history),
+                            stringResource(if (hasExtraFilters) R.string.ld_history_no_matches else R.string.no_history),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            stringResource(R.string.no_history_hint),
+                            stringResource(if (hasExtraFilters) R.string.ld_history_adjust_filter else R.string.no_history_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (hasExtraFilters) {
+                            TextButton(onClick = onShowFilterSheet) {
+                                Text(stringResource(R.string.ld_history_open_filter))
+                            }
+                        }
                     }
                 }
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, top = 16.dp, end = 16.dp,
+                        bottom = if (isSelectionMode) 112.dp else 16.dp,
+                    ),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
@@ -535,111 +561,100 @@ internal fun ModelRunHistoryPage(
                         val item = pagedItems[index] ?: return@items
                         val isSelected = item.id in selectedIds
                         Card(
-                            modifier = Modifier.aspectRatio(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 2.dp,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainer
+                                },
                             ),
                         ) {
-                            // Clickable inside the card so its ripple is clipped
-                            // to the rounded shape (square corners otherwise).
-                            Box(
-                                modifier = Modifier.combinedClickable(
-                                    onClick = { onItemClick(item) },
-                                    onLongClick = { onItemLongClick(item) },
-                                ),
-                            ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(item.imageFile)
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = "Generated image",
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                MaterialTheme.colorScheme.primary.copy(
-                                                    alpha = 0.2f,
-                                                ),
-                                            ),
-                                    )
-                                }
-
-                                if (item.favorite) {
-                                    Icon(
-                                        imageVector = Icons.Default.Favorite,
-                                        contentDescription = "favorited",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier
-                                            .align(Alignment.TopStart)
-                                            .padding(6.dp)
-                                            .size(16.dp),
-                                    )
-                                }
-
-                                // Timestamp overlay
-                                Surface(
-                                    modifier = Modifier.align(Alignment.BottomStart),
-                                    shape = RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 4.dp,
-                                        bottomStart = 12.dp,
-                                        bottomEnd = 0.dp,
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { onItemClick(item) },
+                                        onLongClick = { onItemLongClick(item) },
                                     ),
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh
-                                        .copy(alpha = 0.8f),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                ) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(item.imageFile)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = stringResource(R.string.ld_generated_image),
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                    if (isSelectionMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(8.dp)
+                                                .size(24.dp)
+                                                .background(
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)
+                                                    },
+                                                    shape = CircleShape,
+                                                )
+                                                .border(
+                                                    width = 2.dp,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        Color.White
+                                                    },
+                                                    shape = CircleShape,
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = stringResource(R.string.ld_selected),
+                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier.size(16.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     Text(
                                         text = remember(item.timestamp, locale) {
                                             timestampFormat.format(java.util.Date(item.timestamp))
                                         },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(
-                                            horizontal = 6.dp,
-                                            vertical = 3.dp,
-                                        ),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.weight(1f),
                                     )
-                                }
-
-                                // Selection indicator
-                                if (isSelectionMode) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(8.dp)
-                                            .size(24.dp)
-                                            .background(
-                                                color = if (isSelected) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)
-                                                },
-                                                shape = CircleShape,
-                                            )
-                                            .border(
-                                                width = 2.dp,
-                                                color = if (isSelected) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    Color.White
-                                                },
-                                                shape = CircleShape,
-                                            ),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "Selected",
-                                                tint = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        }
+                                    if (item.favorite) {
+                                        Icon(
+                                            imageVector = Icons.Default.Favorite,
+                                            contentDescription = stringResource(R.string.ld_favorite),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp),
+                                        )
                                     }
                                 }
                             }
@@ -663,7 +678,7 @@ internal fun ModelRunHistoryPage(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Exit selection mode",
+                                contentDescription = stringResource(R.string.ld_exit_selection),
                             )
                         }
                     },
@@ -684,8 +699,19 @@ internal fun ModelRunHistoryPage(
                                     } else {
                                         Icons.Default.CheckCircleOutline
                                     },
-                                    contentDescription = if (isAllSelected) "Deselect all" else "Select all",
+                                    contentDescription = stringResource(if (isAllSelected) R.string.ld_deselect_all else R.string.ld_select_all),
                                 )
+                            }
+                            if (selectedIds.size == 2) {
+                                IconButton(
+                                    onClick = onCompare,
+                                    enabled = !isBatchSaving,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Compare,
+                                        contentDescription = stringResource(R.string.history_compare_action),
+                                    )
+                                }
                             }
                             IconButton(
                                 onClick = onBatchSave,
@@ -696,7 +722,7 @@ internal fun ModelRunHistoryPage(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Save,
-                                    contentDescription = "Save selected",
+                                    contentDescription = stringResource(R.string.ld_save_selected),
                                 )
                             }
                             IconButton(
@@ -708,7 +734,7 @@ internal fun ModelRunHistoryPage(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete selected",
+                                    contentDescription = stringResource(R.string.ld_delete_selected),
                                 )
                             }
                         }

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +38,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -86,12 +89,15 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
     val remoteRepository = remember { RemoteRepository.getInstance(context) }
 
     val hostRunning by RemoteHostService.isRunning.collectAsState()
+    val pairingKey by RemoteHostService.pairingCode.collectAsState()
     val servingModelId by BackendService.servingModelId.collectAsState()
 
     val msgConnectedTo = stringResource(R.string.remote_connected_to)
     val msgUnreachable = stringResource(R.string.remote_connect_failed_unreachable)
 
     var hostInput by remember { mutableStateOf("") }
+    var pairingInput by remember { mutableStateOf("") }
+    var showRePair by remember { mutableStateOf(false) }
     var connecting by remember { mutableStateOf(false) }
     var connectError by remember { mutableStateOf<String?>(null) }
 
@@ -99,6 +105,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
     // control server and backend stay at full performance) while every pixel
     // is off.
     var screenShield by remember { mutableStateOf(false) }
+    var showLanWarning by remember { mutableStateOf(false) }
 
     // Host mode is meant to keep serving while the user leaves the device on
     // this screen; prevent the system from dozing the CPU via screen off.
@@ -112,6 +119,27 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
 
     if (screenShield) {
         ScreenShieldOverlay(onExit = { screenShield = false })
+    }
+
+    if (showLanWarning) {
+        AlertDialog(
+            onDismissRequest = { showLanWarning = false },
+            title = { Text(stringResource(R.string.remote_lan_warning_title)) },
+            text = { Text(stringResource(R.string.remote_lan_warning_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLanWarning = false
+                    RemoteHostService.start(context)
+                }) {
+                    Text(stringResource(R.string.remote_lan_warning_continue))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLanWarning = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -156,12 +184,6 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                     icon = Icons.Default.Devices,
                     title = stringResource(R.string.remote_host_section),
                 )
-                Text(
-                    stringResource(R.string.remote_host_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp),
-                )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -174,6 +196,11 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Text(
+                            stringResource(R.string.remote_host_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         if (hostRunning) {
                             Text(
                                 stringResource(R.string.remote_host_addresses),
@@ -200,6 +227,23 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             }
                             HorizontalDivider()
                             Text(
+                                stringResource(R.string.remote_pairing_key_host),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            SelectionContainer {
+                                Text(
+                                    pairingKey,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Text(
+                                stringResource(R.string.remote_pairing_key_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            HorizontalDivider()
+                            Text(
                                 servingModelId?.let {
                                     stringResource(R.string.remote_host_serving, it)
                                 } ?: stringResource(R.string.remote_host_no_model),
@@ -220,7 +264,7 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             }
                         } else {
                             Button(
-                                onClick = { RemoteHostService.start(context) },
+                                onClick = { showLanWarning = true },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(stringResource(R.string.remote_host_start))
@@ -236,12 +280,6 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                     icon = Icons.Default.Wifi,
                     title = stringResource(R.string.remote_connect_section),
                 )
-                Text(
-                    stringResource(R.string.remote_connect_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp),
-                )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -254,8 +292,13 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Text(
+                            stringResource(R.string.remote_connect_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         val connection = remoteRepository.connection
-                        if (connection != null) {
+                        if (connection != null && !showRePair) {
                             Text(
                                 stringResource(
                                     R.string.remote_connected_to,
@@ -268,26 +311,34 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 OutlinedButton(
                                     onClick = {
                                         scope.launch { remoteRepository.refresh() }
                                     },
                                     enabled = !remoteRepository.refreshing,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(stringResource(R.string.remote_refresh_models))
                                 }
                                 OutlinedButton(
                                     onClick = { remoteRepository.disconnect() },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(stringResource(R.string.remote_disconnect))
                                 }
                             }
+                            TextButton(
+                                onClick = {
+                                    hostInput = connection.host + ":" + connection.port
+                                    pairingInput = ""
+                                    showRePair = true
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(stringResource(R.string.remote_repair)) }
                         } else {
                             OutlinedTextField(
                                 value = hostInput,
@@ -296,6 +347,13 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                 placeholder = {
                                     Text("192.168.1.100")
                                 },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            OutlinedTextField(
+                                value = pairingInput,
+                                onValueChange = { pairingInput = it },
+                                label = { Text(stringResource(R.string.remote_pairing_key_input)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -311,10 +369,11 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
                                     connectError = null
                                     connecting = true
                                     scope.launch {
-                                        val result = remoteRepository.connect(hostInput.trim())
+                                        val result = remoteRepository.connect(hostInput.trim(), pairingInput.trim())
                                         connecting = false
                                         when (result) {
                                             is RemoteConnectResult.Success -> {
+                                                showRePair = false
                                                 Toast.makeText(
                                                     context,
                                                     msgConnectedTo.format(result.deviceName),
@@ -325,10 +384,14 @@ fun RemoteScreen(navController: NavController, modifier: Modifier = Modifier) {
 
                                             is RemoteConnectResult.Unreachable ->
                                                 connectError = msgUnreachable
+                                            is RemoteConnectResult.KeyRejected ->
+                                                connectError = context.getString(R.string.remote_pairing_rejected)
+                                            is RemoteConnectResult.IncompatibleHost ->
+                                                connectError = context.getString(R.string.remote_protocol_mismatch)
                                         }
                                     }
                                 },
-                                enabled = !connecting && hostInput.isNotBlank(),
+                                enabled = !connecting && hostInput.isNotBlank() && pairingInput.isNotBlank(),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 if (connecting) {

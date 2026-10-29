@@ -10,92 +10,77 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
-/**
- * Controller-side client for a host device's control API.
- *
- * Only covers the small JSON control endpoints; generation, tokenize and
- * health-check traffic goes straight to the host's native backend port via
- * [generationHost] using the same code paths as local generation.
- */
+/** Controller-side HTTPS client, certificate-pinned using the pairing code. */
 class RemoteApiClient(
     val host: String,
     val port: Int = RemoteProtocol.CONTROL_PORT,
+    private val sessionKey: String,
+    private val fingerprint: String,
 ) {
-    private val baseUrl = "http://$host:$port"
+    private val baseUrl = "https://$host:$port"
 
-    /** host:port of the native backend on the host device. */
-    val generationHost: String = "$host:${RemoteProtocol.GENERATION_PORT}"
+    /** The generation port also uses the same pinned TLS certificate. */
+    val generationHost: String = "$host:" + RemoteProtocol.GATEWAY_PORT
 
     private val client: OkHttpClient by lazy {
-        Http.client.newBuilder()
-            .connectTimeout(CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
-            .readTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
-            .writeTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
-            .build()
+        RemoteTls.pairingClient(
+            Http.client.newBuilder()
+                .connectTimeout(CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
+                .readTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
+                .writeTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS),
+            host,
+            fingerprint,
+        )
     }
 
     suspend fun fetchInfo(): RemoteHostInfo? = withContext(Dispatchers.IO) {
-        runCatching {
-            get(RemoteProtocol.PATH_INFO)?.let { RemoteHostInfo.fromJson(it) }
-        }.getOrNull()
+        runCatching { get(RemoteProtocol.PATH_INFO)?.let(RemoteHostInfo::fromJson) }.getOrNull()
     }
 
     suspend fun fetchCatalog(): RemoteCatalog? = withContext(Dispatchers.IO) {
-        runCatching {
-            get(RemoteProtocol.PATH_MODELS)?.let { RemoteCatalog.fromJson(it) }
-        }.getOrNull()
+        runCatching { get(RemoteProtocol.PATH_MODELS)?.let(RemoteCatalog::fromJson) }.getOrNull()
     }
 
     suspend fun selectModel(modelId: String, width: Int, height: Int): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            val body = JSONObject().apply {
+            post(RemoteProtocol.PATH_SELECT, JSONObject().apply {
                 put("model_id", modelId)
                 put("width", width)
                 put("height", height)
-            }
-            post(RemoteProtocol.PATH_SELECT, body) != null
+            }) != null
         }.getOrDefault(false)
     }
 
     suspend fun fetchStatus(): RemoteHostStatus? = withContext(Dispatchers.IO) {
-        runCatching {
-            get(RemoteProtocol.PATH_STATUS)?.let { RemoteHostStatus.fromJson(it) }
-        }.getOrNull()
+        runCatching { get(RemoteProtocol.PATH_STATUS)?.let(RemoteHostStatus::fromJson) }.getOrNull()
     }
 
-    /**
-     * Asks the host to stop its backend, but only if [modelId] is still the
-     * host's current selection; a stop that arrives after a newer /select is
-     * ignored host-side.
-     */
     suspend fun stopBackend(modelId: String): Boolean = withContext(Dispatchers.IO) {
         runCatching {
             post(RemoteProtocol.PATH_STOP, JSONObject().put("model_id", modelId)) != null
         }.getOrDefault(false)
     }
 
-    /** Direct health probe against the native backend on the host. */
     suspend fun checkGenerationHealth(): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            val request = Request.Builder()
-                .url("http://$generationHost/health")
-                .get()
-                .build()
-            client.newCall(request).execute().use { it.isSuccessful }
+            val req = Request.Builder()
+                .url("https://$generationHost/health")
+                .header(RemoteProtocol.AUTH_HEADER, sessionKey)
+                .get().build()
+            client.newCall(req).execute().use { it.isSuccessful }
         }.getOrDefault(false)
     }
 
     private fun get(path: String): JSONObject? {
-        val request = Request.Builder()
-            .url(baseUrl + path)
-            .get()
-            .build()
+        val request = Request.Builder().url(baseUrl + path)
+            .header(RemoteProtocol.AUTH_HEADER, sessionKey)
+            .get().build()
         return execute(request)
     }
 
     private fun post(path: String, body: JSONObject): JSONObject? {
-        val request = Request.Builder()
-            .url(baseUrl + path)
+        val request = Request.Builder().url(baseUrl + path)
+            .header(RemoteProtocol.AUTH_HEADER, sessionKey)
             .post(body.toString().toRequestBody("application/json".toMediaTypeOrNull()))
             .build()
         return execute(request)

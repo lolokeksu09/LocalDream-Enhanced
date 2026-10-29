@@ -3,6 +3,8 @@ package io.github.xororz.localdream.ui.screens
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,7 +51,7 @@ import kotlin.math.roundToInt
  * state mutation is routed back through callbacks so the screen keeps ownership
  * of parameter state and persistence.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun AdvancedSettingsDialog(
     isSdxl: Boolean,
@@ -92,25 +94,25 @@ internal fun AdvancedSettingsDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                itemVerticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    stringResource(R.string.advanced_settings_title),
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onImportFromClipboard) {
-                    Icon(
-                        imageVector = Icons.Default.ContentPaste,
-                        contentDescription = stringResource(R.string.import_from_clipboard),
-                    )
-                }
-                IconButton(onClick = onShare) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = stringResource(R.string.share),
-                    )
+                Text(stringResource(R.string.advanced_settings_title))
+                Row {
+                    IconButton(onClick = onImportFromClipboard) {
+                        Icon(
+                            imageVector = Icons.Default.ContentPaste,
+                            contentDescription = stringResource(R.string.import_from_clipboard),
+                        )
+                    }
+                    IconButton(onClick = onShare) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = stringResource(R.string.share),
+                        )
+                    }
                 }
             }
         },
@@ -448,6 +450,12 @@ internal fun AdvancedSettingsDialog(
                     OutlinedTextField(
                         value = seed,
                         onValueChange = onSeedChange,
+                        isError = seedMode(seed) == SeedMode.INVALID,
+                        supportingText = {
+                            if (seedMode(seed) == SeedMode.INVALID) {
+                                Text(stringResource(R.string.seed_invalid))
+                            }
+                        },
                         label = { Text(stringResource(R.string.random_seed)) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
@@ -459,7 +467,7 @@ internal fun AdvancedSettingsDialog(
                                 IconButton(onClick = { onSeedChange("") }) {
                                     Icon(
                                         Icons.Default.Clear,
-                                        contentDescription = "clear",
+                                        contentDescription = stringResource(R.string.seed_clear),
                                     )
                                 }
                             }

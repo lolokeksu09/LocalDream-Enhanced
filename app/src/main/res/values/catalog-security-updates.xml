@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="catalog_filter_all">All</string>
+    <string name="catalog_filter_installed">Installed</string>
+    <string name="catalog_filter_available">Available</string>
+    <string name="catalog_filter_pinned">Pinned</string>
+    <string name="prompt_template_search_hint">Search saved templates</string>
+    <string name="prompt_template_no_matches">No templates match the search.</string>
+    <string name="remote_lan_warning_title">Encrypted LAN pairing</string>
+    <string name="remote_lan_warning_body">Host mode requires a 128-bit pairing key for control and generation. Both control and generation use TLS with certificate pinning. Keep the pairing code private.</string>
+    <string name="remote_lan_warning_continue">Enable anyway</string>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="remote_pairing_key_host">Ключ сопряжения (не сообщайте посторонним)</string>
+    <string name="remote_pairing_key_hint">На втором устройстве введите этот ключ и адрес сервера. После перезапуска режима сервера код меняется. Соединение зашифровано TLS с проверкой отпечатка сертификата.</string>
+    <string name="remote_pairing_key_input">Ключ сопряжения с сервера</string>
+    <string name="remote_pairing_rejected">Не удалось выполнить сопряжение. Проверьте ключ и убедитесь, что режим сервера всё ещё включён.</string>
+    <string name="remote_protocol_mismatch">Обновите Local Dream на обоих устройствах: версия протокола удалённого доступа не совпадает.</string>
+    <string name="remote_repair">Обновить код сопряжения</string>
+</resources>

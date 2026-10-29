@@ -94,6 +94,7 @@ fun HistoryScreen(navController: NavController) {
 
     var isSelectionMode by remember { mutableStateOf(false) }
     val selectedIds = remember { mutableStateListOf<Long>() }
+    var compareIds by remember { mutableStateOf<List<Long>?>(null) }
     var showBatchSaveDialog by remember { mutableStateOf(false) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var isBatchSaving by remember { mutableStateOf(false) }
@@ -195,8 +196,23 @@ fun HistoryScreen(navController: NavController) {
                 },
                 onBatchSave = { showBatchSaveDialog = true },
                 onBatchDelete = { showBatchDeleteDialog = true },
+                onCompare = { compareIds = selectedIds.toList() },
             )
         }
+    }
+
+    compareIds?.let { ids ->
+        HistoryComparisonDialog(
+            historyManager = historyManager,
+            selectedIds = ids,
+            currentModelId = null,
+            onSelectResult = { item ->
+                compareIds = null
+                previewItem = item
+                showParamsDialog = true
+            },
+            onDismiss = { compareIds = null },
+        )
     }
 
     if (showFilterSheet) {

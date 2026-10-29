@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quick_prompt_format_title">Quick prompt format</string>
+    <string name="quick_prompt_format_auto">Auto</string>
+    <string name="quick_prompt_format_universal">Universal</string>
+    <string name="quick_prompt_format_tags">Tags</string>
+    <string name="quick_prompt_format_description">Description</string>
+    <string name="quick_prompt_format_active">Active format: %1$s</string>
+    <string name="quick_prompt_styles_title">Quick styles</string>
+    <string name="quick_prompt_confirm_title">Apply quick style</string>
+    <string name="quick_prompt_confirm_message">Add the style to your existing prompts, or replace both prompts?</string>
+    <string name="quick_prompt_add">Add</string>
+    <string name="quick_prompt_replace">Replace</string>
+    <string name="quick_prompt_cancel">Cancel</string>
+    <string name="quick_preset_parameters">%1$d steps · CFG %2$s</string>
+    <string name="quick_settings_model_default">Model default: %1$d steps · CFG %2$s</string>
+    <string name="quick_settings_custom_hint">Presets may not suit every model.</string>
+</resources>

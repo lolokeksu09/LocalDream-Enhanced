@@ -5,6 +5,7 @@ import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.ServerSocket
+import javax.net.ssl.SSLServerSocketFactory
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
@@ -19,14 +20,15 @@ import org.json.JSONObject
  * heavy (generation SSE, tokenize, upscale) is served by the native backend
  * on its own port, never through here.
  *
- * No authentication, matching the trust model of the existing "allow LAN
- * access" feature: the generation port itself is unauthenticated, so gating
- * only the control API would add friction without adding security. Host mode
- * is explicit and user-visible while active.
+ * Every endpoint except /info requires the current session's 128-bit key.
+ * The generation port is separately guarded by RemoteGenerationGateway.
+ * Both control and generation ports use TLS with a pinned certificate.
  */
 class RemoteHostServer(
     private val port: Int,
     private val handler: Handler,
+    private val sessionKey: String,
+    private val tlsFactory: SSLServerSocketFactory,
 ) {
     interface Handler {
         fun info(): JSONObject
@@ -48,7 +50,7 @@ class RemoteHostServer(
 
     @Throws(IOException::class)
     fun start() {
-        val socket = ServerSocket(port)
+        val socket = tlsFactory.createServerSocket(port)
         serverSocket = socket
         running = true
         workers = Executors.newFixedThreadPool(WORKER_COUNT) { r ->
@@ -103,6 +105,7 @@ class RemoteHostServer(
         val method: String,
         val path: String,
         val body: JSONObject,
+        val authorization: String?,
     )
 
     private fun parseRequest(input: InputStream): Request? {
@@ -113,35 +116,55 @@ class RemoteHostServer(
         // Strip any query string; routes don't use one.
         val path = parts[1].substringBefore('?')
 
-        var contentLength = 0
+        // Reject ambiguous/framed requests instead of treating malformed
+        // Content-Length or a truncated JSON body as a harmless empty body.
+        // No chunked encoding is supported by this single-request server.
+        var contentLength: Int? = null
+        var authorization: String? = null
+        var headerBytes = 0
         while (true) {
             val line = readLine(input) ?: return null
+            headerBytes += line.length + 2
+            if (headerBytes > MAX_HEADER_BYTES) return null
             if (line.isEmpty()) break
-            val name = line.substringBefore(':').trim().lowercase()
-            val value = line.substringAfter(':').trim()
-            if (name == "content-length") {
-                contentLength = value.toIntOrNull() ?: 0
+            val separator = line.indexOf(':')
+            if (separator <= 0) return null
+            val name = line.substring(0, separator).trim().lowercase()
+            val value = line.substring(separator + 1).trim()
+            when (name) {
+                "content-length" -> {
+                    if (contentLength != null || value.isEmpty() || !value.all(Char::isDigit)) {
+                        return null
+                    }
+                    contentLength = value.toIntOrNull() ?: return null
+                    if (contentLength > MAX_BODY_BYTES) return null
+                }
+                "transfer-encoding" -> return null
+                RemoteProtocol.AUTH_HEADER.lowercase() -> {
+                    if (authorization != null) return null
+                    authorization = value
+                }
             }
         }
-        if (contentLength > MAX_BODY_BYTES) return null
-
-        val body = if (contentLength > 0) {
-            val bytes = ByteArray(contentLength)
+        val length = contentLength ?: 0
+        if (method == "POST" && length == 0) return null
+        val body = if (length > 0) {
+            val bytes = ByteArray(length)
             var read = 0
-            while (read < contentLength) {
-                val n = input.read(bytes, read, contentLength - read)
-                if (n < 0) break
+            while (read < length) {
+                val n = input.read(bytes, read, length - read)
+                if (n <= 0) return null
                 read += n
             }
             try {
-                JSONObject(String(bytes, 0, read, StandardCharsets.UTF_8))
+                JSONObject(String(bytes, StandardCharsets.UTF_8))
             } catch (_: Exception) {
-                JSONObject()
+                return null
             }
         } else {
             JSONObject()
         }
-        return Request(method, path, body)
+        return Request(method, path, body, authorization)
     }
 
     // Reads one CRLF/LF-terminated header line as ISO-8859-1 (headers are
@@ -159,8 +182,12 @@ class RemoteHostServer(
     }
 
     private fun route(request: Request): Response {
-        if (request.path == RemoteProtocol.PATH_INFO) {
+        if (request.method == "GET" && request.path == RemoteProtocol.PATH_INFO) {
             return Response(200, handler.info())
+        }
+        val key = request.authorization ?: return Response(401, errorBody("unauthorized"))
+        if (!RemotePairingKey.matches(sessionKey, key)) {
+            return Response(401, errorBody("unauthorized"))
         }
         return when {
             request.method == "GET" && request.path == RemoteProtocol.PATH_MODELS ->
@@ -212,6 +239,7 @@ class RemoteHostServer(
         private const val WORKER_COUNT = 1
         private const val SOCKET_TIMEOUT_MS = 10_000
         private const val MAX_BODY_BYTES = 64 * 1024
+        private const val MAX_HEADER_BYTES = 32 * 1024
         private const val MAX_LINE_LENGTH = 8 * 1024
     }
 }

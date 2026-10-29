@@ -127,6 +127,14 @@
 
     <!-- Run Screen -->
     <string name="prompt_settings">Prompts</string>
+    <string name="prompt_templates">Prompt templates</string>
+    <string name="prompt_templates_hint">Save positive and negative prompts on this device. Saving with an existing name updates that template.</string>
+    <string name="no_prompt_templates">No templates saved yet.</string>
+    <string name="prompt_template_name">Template name</string>
+    <string name="prompt_template_name_required">Enter a template name.</string>
+    <string name="apply_prompt_template">Apply</string>
+    <string name="delete_prompt_template">Delete</string>
+    <string name="prompt_template_delete_confirm">Delete the template “%1$s”?</string>
     <string name="advanced_settings">Advanced</string>
     <string name="advanced_settings_title">Advanced Settings</string>
     <string name="image_prompt">Image Generation Prompt</string>
@@ -179,7 +187,7 @@
     <string name="reset">Reset</string>
     <string name="reset_hint">Reset all parameters? This action cannot be undone. </string>
     <string name="media_permission_hint">Media permission is needed for img2img generation</string>
-    <string name="backend_failed">Backend start failed. Maybe your device is not supported.</string>
+    <string name="backend_failed">Could not start the backend. Check that the model files are complete and compatible with this device, then reopen the model.</string>
 
     <!-- Parameter Settings -->
     <string name="generation_params">Generation Params</string>
@@ -532,4 +540,16 @@
     <string name="model_storage_name_clash">The Download folder does not tell upper and lower case apart, so these would overwrite another model or embedding: %1$s. Rename or delete them first.</string>
     <string name="model_storage_conflict">%1$s already contains %2$s. Delete one of the copies, then try again.</string>
     <string name="model_storage_moving_blocked">Models are being moved. Try again once the move has finished.</string>
+
+    <!-- Model catalogue search -->
+    <string name="search_models">Search models</string>
+    <string name="clear_search">Clear search</string>
+    <string name="no_models_match_search">No models match your search.</string>
+    <string name="quick_preset_portrait">Portrait</string>
+    <string name="quick_preset_anime">Anime</string>
+    <string name="quick_preset_realism">Realism</string>
+    <string name="quick_settings_title">Quick generation</string>
+    <string name="quick_settings_fast">Fast</string>
+    <string name="quick_settings_quality">Quality</string>
+    <string name="quick_settings_detail">Detail</string>
 </resources>

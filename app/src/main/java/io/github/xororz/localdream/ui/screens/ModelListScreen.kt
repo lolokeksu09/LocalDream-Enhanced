@@ -50,6 +50,7 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -274,6 +275,8 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedModels by remember { mutableStateOf(setOf<Model>()) }
+    var searchQuery by remember { mutableStateOf("") }
+    var catalogFilter by remember { mutableStateOf(ModelCatalogFilter.ALL) }
 
     // Ordered pinned ids; drives the pinned-first sort within each tab. Loaded
     // once and kept in sync as the user pins/unpins/renames.
@@ -282,9 +285,9 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior =
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
 
-    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
     var showFileManagerDialog by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
     var showCleanTempDialog by remember { mutableStateOf(false) }
@@ -388,12 +391,12 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
     }
 
     val listedModels = if (remoteActive) remoteRepository.models else modelRepository.models
-    val cpuModels = remember(listedModels, pinnedIds) {
-        PinnedModels.sort(listedModels.filter { it.runOnCpu }, pinnedIds)
+    // The catalog projection is pure: Compose owns only its inputs.
+    val catalogSections = remember(listedModels, pinnedIds, searchQuery, catalogFilter) {
+        ModelCatalogSelector.select(listedModels, pinnedIds, searchQuery, catalogFilter)
     }
-    val npuModels = remember(listedModels, pinnedIds) {
-        PinnedModels.sort(listedModels.filter { !it.runOnCpu }, pinnedIds)
-    }
+    val cpuModels = catalogSections.cpu
+    val npuModels = catalogSections.npu
 
     val lastViewedPage = remember {
         val preferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -832,11 +835,12 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
 
     Scaffold(
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = "Local Dream✨",
+                            text = "Local Dream",
+                            style = MaterialTheme.typography.titleLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -914,6 +918,20 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                         // A single overflow menu keeps the collapsed large top
                         // bar's title from being squeezed by multiple action
                         // icons competing for width.
+                        if (!remoteActive) {
+                            IconButton(onClick = {
+                                if (pagerState.currentPage == 0) showCustomModelDialog = true
+                                else showCustomNpuModelDialog = true
+                            }) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = stringResource(
+                                        if (pagerState.currentPage == 0) R.string.add_custom_model
+                                        else R.string.add_custom_npu_model,
+                                    ),
+                                )
+                            }
+                        }
                         var menuExpanded by remember { mutableStateOf(false) }
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(
@@ -1032,6 +1050,42 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
             }
 
+            if (!isSelectionMode) {
+                TextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    placeholder = { Text(stringResource(R.string.search_models)) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = null)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.clear_search),
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                )
+                ModelCatalogFilterRow(
+                    selected = catalogFilter,
+                    onSelected = { catalogFilter = it },
+                )
+            }
+
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.weight(1f),
@@ -1043,26 +1097,6 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (page == 0 && !remoteActive) {
-                        item {
-                            AddCustomModelButton(
-                                onClick = { showCustomModelDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-
-                    if (page == 1 && !remoteActive) {
-                        item {
-                            AddModelOutlinedCard(
-                                label = stringResource(R.string.add_custom_npu_model),
-                                accent = true,
-                                onClick = { showCustomNpuModelDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-
                     items(
                         items = models,
                         key = { model -> model.id },
@@ -1131,7 +1165,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                         )
                     }
 
-                    if (models.isEmpty() && modelRepository.isLoaded) {
+                    if (models.isEmpty() && (searchQuery.isNotBlank() || catalogFilter != ModelCatalogFilter.ALL || modelRepository.isLoaded)) {
                         item {
                             var visible by remember { mutableStateOf(false) }
                             LaunchedEffect(Unit) { visible = true }
@@ -1153,15 +1187,27 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = if (page == 0) {
-                                            stringResource(R.string.no_cpu_models)
-                                        } else {
-                                            stringResource(R.string.no_npu_models)
+                                        text = when {
+                                            searchQuery.isNotBlank() -> stringResource(R.string.no_models_match_search)
+                                            catalogFilter == ModelCatalogFilter.INSTALLED -> stringResource(R.string.catalog_no_installed)
+                                            catalogFilter == ModelCatalogFilter.AVAILABLE -> stringResource(R.string.catalog_no_available)
+                                            catalogFilter == ModelCatalogFilter.PINNED -> stringResource(R.string.catalog_no_pinned)
+                                            page == 0 -> stringResource(R.string.no_cpu_models)
+                                            else -> stringResource(R.string.no_npu_models)
                                         },
                                         style = MaterialTheme.typography.bodyLarge,
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (searchQuery.isBlank() && catalogFilter == ModelCatalogFilter.PINNED) {
+                                        Text(
+                                            text = stringResource(R.string.catalog_pin_hint),
+                                            modifier = Modifier.padding(top = 8.dp, start = 24.dp, end = 24.dp),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textAlign = TextAlign.Center,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1169,23 +1215,13 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                TabPageIndicator(
-                    pageCount = 2,
-                    currentPage = pagerState.currentPage,
-                )
-            }
+
         }
     }
 
     // Settings overlay with predictive back support.
     // drawerOffset: 0f = fully open, 1f = fully off-screen to the right.
-    val drawerOffset = remember { Animatable(1f) }
+    val drawerOffset = remember { Animatable(if (showSettingsDialog) 0f else 1f) }
     val drawerAnimSpec = tween<Float>(Motion.DurationLong, easing = Motion.Emphasized)
     LaunchedEffect(showSettingsDialog) {
         drawerOffset.animateTo(
@@ -1433,11 +1469,6 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                 var captureLogs by remember {
                                     mutableStateOf(
                                         preferences.getBoolean("enable_log_capture", false),
-                                    )
-                                }
-                                var listenOnAllAddresses by remember {
-                                    mutableStateOf(
-                                        preferences.getBoolean("listen_on_all_addresses", false),
                                     )
                                 }
                                 var enableTagAutocomplete by remember {
@@ -1789,17 +1820,7 @@ fun ModelListScreen(navController: NavController, modifier: Modifier = Modifier)
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                 )
-                                SwitchSettingRow(
-                                    title = stringResource(R.string.listen_on_all_addresses),
-                                    description = stringResource(R.string.listen_on_all_addresses_hint),
-                                    checked = listenOnAllAddresses,
-                                    onCheckedChange = {
-                                        listenOnAllAddresses = it
-                                        preferences.edit {
-                                            putBoolean("listen_on_all_addresses", it)
-                                        }
-                                    },
-                                )
+
                             }
                         }
                     }
@@ -2055,220 +2076,6 @@ fun TabPageIndicator(pageCount: Int, currentPage: Int, modifier: Modifier = Modi
                     ),
             )
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-fun ModelCard(
-    model: Model,
-    isSelected: Boolean,
-    isSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isPinned: Boolean = false,
-) {
-    val isDisabledInSelection = !model.isDownloaded && isSelectionMode
-
-    val elevation by animateFloatAsState(
-        targetValue = if (isSelected) 4f else 1f,
-        animationSpec = Motion.springExpressiveSpatial(),
-        label = "CardElevationAnimation",
-    )
-
-    val targetContainer = when {
-        isSelected -> MaterialTheme.colorScheme.secondaryContainer
-        isDisabledInSelection -> MaterialTheme.colorScheme.surfaceContainerLow
-        else -> MaterialTheme.colorScheme.surfaceContainer
-    }
-    val backgroundColor by animateColorAsState(
-        targetValue = targetContainer,
-        animationSpec = tween(Motion.DurationMedium, easing = Motion.Standard),
-        label = "CardBackgroundColorAnimation",
-    )
-
-    val primaryContent = when {
-        isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
-        isDisabledInSelection -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-    val secondaryContent = when {
-        isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
-        isDisabledInSelection -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = backgroundColor,
-            contentColor = primaryContent,
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = elevation.dp,
-        ),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        // The clickable lives inside the card so its press/ripple indication is
-        // clipped to the card's rounded shape. On the outer modifier the ripple
-        // would render as a rectangle and show square corners on long-press.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = {
-                        if (!isSelectionMode || model.isDownloaded) onClick()
-                    },
-                    onLongClick = {
-                        if (model.isDownloaded && !isSelectionMode) onLongClick()
-                    },
-                ),
-        ) {
-            Badge(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp),
-                containerColor = if (model.runOnCpu) {
-                    MaterialTheme.colorScheme.tertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.primaryContainer
-                },
-                contentColor = if (model.runOnCpu) {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                },
-            ) {
-                Text(
-                    text = if (model.runOnCpu) "CPU" else "NPU",
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (isPinned) {
-                        Icon(
-                            imageVector = Icons.Default.PushPin,
-                            contentDescription = stringResource(R.string.pin_to_top),
-                            tint = primaryContent,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                    Text(
-                        text = model.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Normal,
-                        color = primaryContent,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = model.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = secondaryContent,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        InfoChip(
-                            icon = Icons.Default.SdStorage,
-                            label = model.approximateSize,
-                            color = secondaryContent,
-                        )
-                        InfoChip(
-                            icon = Icons.Default.AspectRatio,
-                            label = if (model.runOnCpu) {
-                                "128~512"
-                            } else {
-                                "${model.generationSize}×${model.generationSize}"
-                            },
-                            color = secondaryContent,
-                        )
-                    }
-
-                    when {
-                        model.isDownloaded -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                val statusColor =
-                                    if (isSelected) {
-                                        MaterialTheme.colorScheme.onSecondaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.primary
-                                    }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "downloaded",
-                                        tint = statusColor,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.downloaded),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = statusColor,
-                                    )
-                                }
-                            }
-                        }
-
-                        else -> {
-                            InfoChip(
-                                icon = Icons.Default.CloudDownload,
-                                label = stringResource(R.string.download),
-                                color = secondaryContent,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InfoChip(icon: ImageVector, label: String, color: Color) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(16.dp),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = color,
-        )
     }
 }
 
@@ -3744,218 +3551,6 @@ private fun SettingNavCard(icon: ImageVector, label: String, onClick: () -> Unit
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-@Composable
-private fun SwitchSettingRow(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun AppearanceSection() {
-    val themeController = LocalThemeController.current
-    val state = themeController.state
-    val dynamicColorSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val isDark = when (state.darkMode) {
-        DarkModePreference.SYSTEM -> isSystemInDarkTheme()
-        DarkModePreference.LIGHT -> false
-        DarkModePreference.DARK -> true
-    }
-
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(bottom = 12.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Palette,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                stringResource(R.string.appearance),
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
-        ) {
-            if (dynamicColorSupported) {
-                SwitchSettingRow(
-                    title = stringResource(R.string.dynamic_color),
-                    description = stringResource(R.string.dynamic_color_hint),
-                    checked = state.dynamicColor,
-                    onCheckedChange = { value ->
-                        themeController.update { it.copy(dynamicColor = value) }
-                    },
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    stringResource(R.string.theme_preset),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    stringResource(R.string.theme_preset_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    ThemePreset.entries.forEach { preset ->
-                        ThemeSwatch(
-                            preset = preset,
-                            isDark = isDark,
-                            selected = preset == state.preset && !state.dynamicColor,
-                            enabled = !state.dynamicColor,
-                            onClick = {
-                                themeController.update { it.copy(preset = preset) }
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    stringResource(R.string.dark_mode),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        ButtonGroupDefaults.ConnectedSpaceBetween,
-                    ),
-                ) {
-                    val modes = DarkModePreference.entries
-                    modes.forEachIndexed { index, mode ->
-                        val shapes = when (index) {
-                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                            modes.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                        }
-                        ToggleButton(
-                            checked = mode == state.darkMode,
-                            onCheckedChange = { checked ->
-                                if (checked) themeController.update { it.copy(darkMode = mode) }
-                            },
-                            shapes = shapes,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    when (mode) {
-                                        DarkModePreference.SYSTEM -> R.string.dark_mode_system
-                                        DarkModePreference.LIGHT -> R.string.dark_mode_light
-                                        DarkModePreference.DARK -> R.string.dark_mode_dark
-                                    },
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ThemeSwatch(
-    preset: ThemePreset,
-    isDark: Boolean,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val scheme = preset.scheme(isDark)
-    val alpha = if (enabled) 1f else 0.45f
-    val description = stringResource(preset.nameRes)
-    val polygon = when (preset) {
-        ThemePreset.TANGERINE -> MaterialShapes.Cookie9Sided
-        ThemePreset.FOREST -> MaterialShapes.Clover4Leaf
-        ThemePreset.OCEAN -> MaterialShapes.Sunny
-        ThemePreset.AMBER -> MaterialShapes.Cookie6Sided
-    }
-    val shape = polygon.toShape()
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Surface(
-            onClick = onClick,
-            enabled = enabled,
-            shape = shape,
-            color = scheme.primary.copy(alpha = alpha),
-            border = if (selected) {
-                BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
-            } else {
-                null
-            },
-            modifier = Modifier
-                .size(48.dp)
-                .semantics { contentDescription = description },
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (selected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = scheme.onPrimary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
         }
     }
 }

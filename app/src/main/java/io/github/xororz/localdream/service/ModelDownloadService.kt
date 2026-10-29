@@ -11,32 +11,39 @@ import androidx.core.app.NotificationCompat
 import io.github.xororz.localdream.R
 import io.github.xororz.localdream.data.Model
 import io.github.xororz.localdream.data.ModelStorage
+import io.github.xororz.localdream.data.ModelArchiveInstaller
 import io.github.xororz.localdream.utils.Http
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.Locale
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 
 class ModelDownloadService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+    private val downloadMutex = Mutex()
     private var downloadJob: Job? = null
 
     private val notificationManager by lazy {
         getSystemService(NOTIFICATION_SERVICE) as NotificationManager
     }
 
-    private val client = Http.client.newBuilder()
+    private val client = Http.downloadClient.newBuilder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
@@ -133,115 +140,140 @@ class ModelDownloadService : Service() {
     ) {
         downloadJob?.cancel()
         downloadJob = serviceScope.launch {
-            var tempFile: File? = null
-            var extractTempDir: File? = null
-            try {
-                _downloadState.value = DownloadState.Downloading(modelId, 0f, 0, 0)
+            downloadMutex.withLock {
+                var tempFile: File? = null
+                var extractTempDir: File? = null
+                try {
+                    _downloadState.value = DownloadState.Downloading(modelId, 0f, 0, 0)
 
-                val tempDir = ModelStorage.tempDownloadsDir(this@ModelDownloadService)
+                    val tempDir = ModelStorage.tempDownloadsDir(this@ModelDownloadService)
+                    if (!tempDir.isDirectory && !tempDir.mkdirs()) {
+                        throw IOException("Cannot create model download scratch directory")
+                    }
 
-                if (tempDir.exists()) {
-                    tempDir.deleteRecursively()
-                }
-                tempDir.mkdirs()
+                    // Recover an interrupted ZIP replacement before cleaning scratch files.
+                    // Never delete *_previous here: it may be the only remaining copy.
+                    if (modelType == TYPE_SD && isZip) {
+                        val modelDir = File(getModelsDir(), modelId)
+                        val backupDir = File(tempDir, "${modelId}_previous")
+                        ModelArchiveInstaller.recover(modelDir, backupDir)
+                    }
 
-                if (modelType == TYPE_MULTI_FILE) {
-                    downloadPackageFiles(modelId, modelName, fileUrl, fileNames, markerFile)
+                    val scratchFiles = tempDir.listFiles()
+                        ?: throw IOException("Cannot read model download scratch directory")
+                    scratchFiles.filter { file ->
+                        (file.isFile && file.name.endsWith(".tmp")) ||
+                            (file.isDirectory && file.name.endsWith("_extract"))
+                    }.forEach { file ->
+                        if (!file.deleteRecursively()) {
+                            throw IOException("Cannot clear stale download data: ${file.name}")
+                        }
+                    }
+
+                    if (modelType == TYPE_MULTI_FILE) {
+                        downloadPackageFiles(modelId, modelName, fileUrl, fileNames, markerFile)
+                        _downloadState.value = DownloadState.Success(modelId)
+                        updateNotification(modelName, 100f, true)
+                        withContext(Dispatchers.Main) {
+                            kotlinx.coroutines.delay(2000)
+                            _downloadState.value = DownloadState.Idle
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
+                        return@launch
+                    }
+
+                    tempFile = File(tempDir, "${modelId}_${System.currentTimeMillis()}.tmp")
+
+                    downloadFile(fileUrl, tempFile, modelId, modelName)
+
+                    when (modelType) {
+                        TYPE_SD -> {
+                            if (isZip) {
+                                val modelDir = File(getModelsDir(), modelId)
+                                val stagingDir = File(tempDir, "${modelId}_extract")
+                                val backupDir = File(tempDir, "${modelId}_previous")
+
+                                if (stagingDir.exists() && !stagingDir.deleteRecursively()) {
+                                    throw IOException("Cannot clear the model extraction directory")
+                                }
+                                if (!stagingDir.mkdirs() && !stagingDir.isDirectory) {
+                                    throw IOException("Cannot create the model extraction directory")
+                                }
+                                extractTempDir = stagingDir
+
+                                _downloadState.value = DownloadState.Extracting(modelId)
+                                updateNotification(modelName, 0f, isExtracting = true)
+
+                                unzipFile(tempFile, stagingDir)
+                                val backupRemoved = ModelArchiveInstaller.install(stagingDir, modelDir, backupDir)
+                                if (!backupRemoved) {
+                                    Log.w(
+                                        TAG,
+                                        "New model installed; previous backup remains at ${backupDir.absolutePath}",
+                                    )
+                                }
+                                extractTempDir = null
+                            }
+                        }
+
+                        TYPE_UPSCALER -> {
+                            val upscalerDir = File(getModelsDir(), modelId).apply {
+                                if (!exists()) mkdirs()
+                            }
+                            val targetFile = File(upscalerDir, Model.UPSCALER_FILE_NAME)
+
+                            if (targetFile.exists()) {
+                                targetFile.delete()
+                            }
+
+                            // Don't report success on a failed move: it would leave
+                            // an empty model dir that the UI/loader can't use.
+                            if (!tempFile.renameTo(targetFile)) {
+                                tempFile.copyTo(targetFile, overwrite = true)
+                            }
+                        }
+                    }
+
+                    tempFile.delete()
+                    tempFile = null
+
                     _downloadState.value = DownloadState.Success(modelId)
                     updateNotification(modelName, 100f, true)
+
                     withContext(Dispatchers.Main) {
                         kotlinx.coroutines.delay(2000)
                         _downloadState.value = DownloadState.Idle
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                     }
-                    return@launch
-                }
+                } catch (e: CancellationException) {
+                    tempFile?.delete()
+                    extractTempDir?.deleteRecursively()
+                    discardPartialFiles(modelType, modelId)
+                    // Cancellation (service reclaimed, a new download started, or
+                    // explicit cancel) is not a download failure: re-throw so it is
+                    // not surfaced as an "Error" state. Emitting Error here is what
+                    // produced the spurious "Job was cancelled" snackbar that could
+                    // appear right after a successful download finished.
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Download failed", e)
 
-                tempFile = File(tempDir, "${modelId}_${System.currentTimeMillis()}.tmp")
+                    tempFile?.delete()
+                    extractTempDir?.deleteRecursively()
+                    discardPartialFiles(modelType, modelId)
 
-                downloadFile(fileUrl, tempFile, modelId, modelName)
+                    _downloadState.value =
+                        DownloadState.Error(modelId, e.message ?: getString(R.string.unknown_error))
+                    updateNotification(modelName, 0f, false, e.message)
 
-                when (modelType) {
-                    TYPE_SD -> {
-                        if (isZip) {
-                            val modelDir = File(getModelsDir(), modelId)
-
-                            if (modelDir.exists()) {
-                                modelDir.deleteRecursively()
-                            }
-                            modelDir.mkdirs()
-
-                            extractTempDir = File(tempDir, "${modelId}_extract")
-                            extractTempDir.mkdirs()
-
-                            _downloadState.value = DownloadState.Extracting(modelId)
-                            updateNotification(modelName, 0f, isExtracting = true)
-
-                            unzipFile(tempFile, extractTempDir)
-
-                            extractTempDir.listFiles()?.forEach { file ->
-                                file.renameTo(File(modelDir, file.name))
-                            }
-                            extractTempDir.delete()
-                            extractTempDir = null
-                        }
+                    withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.delay(3000)
+                        _downloadState.value = DownloadState.Idle
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
                     }
-
-                    TYPE_UPSCALER -> {
-                        val upscalerDir = File(getModelsDir(), modelId).apply {
-                            if (!exists()) mkdirs()
-                        }
-                        val targetFile = File(upscalerDir, Model.UPSCALER_FILE_NAME)
-
-                        if (targetFile.exists()) {
-                            targetFile.delete()
-                        }
-
-                        // Don't report success on a failed move: it would leave
-                        // an empty model dir that the UI/loader can't use.
-                        if (!tempFile.renameTo(targetFile)) {
-                            tempFile.copyTo(targetFile, overwrite = true)
-                        }
-                    }
-                }
-
-                tempFile.delete()
-                tempFile = null
-
-                _downloadState.value = DownloadState.Success(modelId)
-                updateNotification(modelName, 100f, true)
-
-                withContext(Dispatchers.Main) {
-                    kotlinx.coroutines.delay(2000)
-                    _downloadState.value = DownloadState.Idle
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                }
-            } catch (e: CancellationException) {
-                discardPartialFiles(modelType, modelId)
-                // Cancellation (service reclaimed, a new download started, or
-                // explicit cancel) is not a download failure: re-throw so it is
-                // not surfaced as an "Error" state. Emitting Error here is what
-                // produced the spurious "Job was cancelled" snackbar that could
-                // appear right after a successful download finished.
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Download failed", e)
-
-                tempFile?.delete()
-                extractTempDir?.deleteRecursively()
-                discardPartialFiles(modelType, modelId)
-
-                _downloadState.value =
-                    DownloadState.Error(modelId, e.message ?: getString(R.string.unknown_error))
-                updateNotification(modelName, 0f, false, e.message)
-
-                withContext(Dispatchers.Main) {
-                    kotlinx.coroutines.delay(3000)
-                    _downloadState.value = DownloadState.Idle
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
                 }
             }
         }
@@ -403,17 +435,31 @@ class ModelDownloadService : Service() {
     }
 
     private suspend fun unzipFile(zipFile: File, destDir: File) = withContext(Dispatchers.IO) {
+        val coroutineContext = currentCoroutineContext()
+        val seenNames = mutableSetOf<String>()
         ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
             var entry = zis.nextEntry
 
             while (entry != null) {
+                coroutineContext.ensureActive()
                 if (!entry.isDirectory) {
+                    // Model archives are intentionally flattened into one directory.
+                    // Reject collisions rather than silently overwriting another entry.
                     val fileName = entry.name.substringAfterLast('/')
                     if (fileName.isNotEmpty() && !fileName.startsWith(".") && !fileName.startsWith("__MACOSX")) {
-                        val file = File(destDir, fileName)
+                        if (!seenNames.add(fileName.lowercase(Locale.ROOT))) {
+                            throw IOException("Archive contains duplicate file name: $fileName")
+                        }
 
+                        val file = File(destDir, fileName)
                         java.io.BufferedOutputStream(FileOutputStream(file)).use { output ->
-                            zis.copyTo(output)
+                            val buffer = ByteArray(32 * 1024)
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val count = zis.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
                         }
                     }
                 }

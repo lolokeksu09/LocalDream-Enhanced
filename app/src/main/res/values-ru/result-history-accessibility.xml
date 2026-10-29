@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ld_add_favorite">Добавить в избранное</string>
+    <string name="ld_remove_favorite">Убрать из избранного</string>
+    <string name="ld_report_image">Пожаловаться на изображение</string>
+    <string name="ld_upscale_image">Увеличить изображение</string>
+    <string name="ld_ultrafix_image">Исправить изображение с UltraFix</string>
+    <string name="ld_save_image">Сохранить изображение</string>
+    <string name="ld_generated_image">Созданное изображение</string>
+    <string name="ld_recent_image">Недавнее изображение</string>
+    <string name="ld_view_parameters">Посмотреть параметры генерации</string>
+    <string name="ld_favorite">В избранном</string>
+    <string name="ld_selected">Выбрано</string>
+    <string name="ld_exit_selection">Выйти из режима выбора</string>
+    <string name="ld_select_all">Выбрать все</string>
+    <string name="ld_deselect_all">Снять выделение</string>
+    <string name="ld_save_selected">Сохранить выбранные</string>
+    <string name="ld_delete_selected">Удалить выбранные</string>
+    <string name="ld_import_ultrafix">Импортировать изображение для UltraFix</string>
+    <string name="ld_history_load_error">Не удалось загрузить историю.</string>
+    <string name="ld_history_retry">Повторить</string>
+    <string name="ld_history_no_matches">Подходящих изображений нет</string>
+    <string name="ld_history_adjust_filter">Попробуйте изменить фильтры.</string>
+    <string name="ld_history_open_filter">Изменить фильтры</string>
+</resources>

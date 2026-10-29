@@ -19,11 +19,14 @@ import io.github.xororz.localdream.data.ModelRepository
 import io.github.xororz.localdream.data.PatchScanner
 import io.github.xororz.localdream.remote.RemoteCatalog
 import io.github.xororz.localdream.remote.RemoteHostInfo
+import io.github.xororz.localdream.remote.RemoteGenerationGateway
 import io.github.xororz.localdream.remote.RemoteHostServer
 import io.github.xororz.localdream.remote.RemoteHostStatus
 import io.github.xororz.localdream.remote.RemoteModelDefaults
 import io.github.xororz.localdream.remote.RemoteModelInfo
 import io.github.xororz.localdream.remote.RemoteProtocol
+import io.github.xororz.localdream.remote.RemotePairingKey
+import io.github.xororz.localdream.remote.RemoteTls
 import io.github.xororz.localdream.remote.RemoteUpscalerInfo
 import java.io.File
 import java.io.IOException
@@ -39,13 +42,12 @@ import org.json.JSONObject
  *
  * Runs the small authenticated control API ([RemoteHostServer]) that lets a
  * controller device list this device's installed models, activate one and
- * watch backend state. While active it also flips the
- * [KEY_HOST_MODE_ACTIVE] preference so [BackendService] starts the native
- * backend with --listen_all, letting the controller talk to the generation
- * port directly.
+ * watch backend state. A separate authenticated streaming gateway handles
+ * generation, leaving the native engine bound to loopback on port 8081.
  */
 class RemoteHostService : Service() {
     private var server: RemoteHostServer? = null
+    private var gateway: RemoteGenerationGateway? = null
 
     // Model id of the most recent /select. /stop requests carry the id they
     // intend to stop; a late-arriving stop for a superseded selection is
@@ -70,19 +72,38 @@ class RemoteHostService : Service() {
         startForeground(NOTIFICATION_ID, createNotification())
 
         if (server == null) {
+            // New 128-bit key on every host-mode start: old controllers must
+            // explicitly pair again when the host session is restarted.
+            val key = RemotePairingKey.generate()
+            val identity = try {
+                RemoteTls.hostIdentity()
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to initialize TLS identity", e)
+                updateState(running = false)
+                stopSelf()
+                return START_NOT_STICKY
+            }
             val newServer = RemoteHostServer(
                 port = RemoteProtocol.CONTROL_PORT,
                 handler = ApiHandler(),
+                sessionKey = key,
+                tlsFactory = identity.factory,
             )
+            val newGateway = RemoteGenerationGateway(key, identity.factory)
             try {
+                newGateway.start()
                 newServer.start()
             } catch (e: IOException) {
-                Log.e(TAG, "failed to start control server", e)
+                Log.e(TAG, "failed to start secured host endpoints", e)
+                newServer.shutdown()
+                newGateway.shutdown()
                 updateState(running = false)
                 stopSelf()
                 return START_NOT_STICKY
             }
             server = newServer
+            gateway = newGateway
+            StateHolder._pairingCode.value = key + "." + identity.fingerprint
             updateState(running = true)
             // Bring BackendService up as a foreground service now, while the
             // app is still visible (the user just tapped the button). Later
@@ -106,12 +127,14 @@ class RemoteHostService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         server?.shutdown()
+        gateway?.shutdown()
         server = null
+        gateway = null
+        StateHolder._pairingCode.value = ""
         // Flip the flag before stopping the backend so its stop-grace logic
         // no longer keeps the service alive for host mode.
         updateState(running = false)
-        // The backend was reachable from the LAN; don't leave it running
-        // (and exposed) after host mode ends.
+        // Stop the engine after host mode ends, preserving its local-only bind.
         try {
             startService(
                 Intent(this, BackendService::class.java)
@@ -361,9 +384,11 @@ class RemoteHostService : Service() {
 
         private object StateHolder {
             val _isRunning = MutableStateFlow(false)
+            val _pairingCode = MutableStateFlow("")
         }
 
         val isRunning: StateFlow<Boolean> = StateHolder._isRunning
+        val pairingCode: StateFlow<String> = StateHolder._pairingCode
 
         private fun updateState(running: Boolean) {
             StateHolder._isRunning.value = running

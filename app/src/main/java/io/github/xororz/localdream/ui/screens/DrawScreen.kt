@@ -16,6 +16,8 @@ import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -92,6 +94,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
@@ -353,7 +357,7 @@ fun DrawScreen(
                             forceNewLayerNextDraw = true
                             Toast.makeText(
                                 context,
-                                "New layer",
+                                context.getString(R.string.draw_new_layer),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         },
@@ -795,13 +799,15 @@ fun BrushToolsComponent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            // horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Current color / Select color
+            val selectColorLabel = stringResource(R.string.draw_select_color)
             FilledIconButton(
                 onClick = onColorClick,
+                modifier = Modifier.semantics { contentDescription = selectColorLabel },
                 enabled = !isEraserMode && cloneMode == CloneMode.OFF,
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = currentColor, // Color shown while the button is active
@@ -836,12 +842,12 @@ fun BrushToolsComponent(
             }
 
             // New layer
-            FilledIconToggleButton(checked = false, onCheckedChange = { onNewLayerClick() }) {
+            FilledIconButton(onClick = onNewLayerClick) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = stringResource(R.string.draw_new_layer))
             }
 
             // Undo
-            FilledIconToggleButton(checked = false, onCheckedChange = { onUndo() }) {
+            FilledIconButton(onClick = onUndo) {
                 Icon(imageVector = Icons.AutoMirrored.Default.Undo, contentDescription = stringResource(R.string.undo))
             }
         }
@@ -849,8 +855,8 @@ fun BrushToolsComponent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            // horizontalArrangement = Arrangement.Spa,
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Zoom
@@ -867,7 +873,7 @@ fun BrushToolsComponent(
             }
 
             // Clear all
-            FilledIconToggleButton(checked = false, onCheckedChange = { onClearAll() }) {
+            FilledIconButton(onClick = onClearAll) {
                 Icon(imageVector = Icons.Default.Delete, contentDescription = stringResource(R.string.draw_clear_all))
             }
         }

@@ -7,17 +7,18 @@ import org.json.JSONObject
  * Wire protocol between a controller device (B) and a host device (A).
  *
  * The host exposes two ports:
- *  - CONTROL_PORT: a small authenticated JSON API served by [RemoteHostServer]
+ *  - CONTROL_PORT: JSON control API, authenticated except for /info.
  *    (model catalog, model activation, backend status).
- *  - GENERATION_PORT: the native backend itself, started with --listen_all
- *    while host mode is active. The controller talks to /generate, /tokenize
- *    and /health on it directly, reusing the exact same client code paths as
- *    local generation.
+ *  - GENERATION_PORT: native backend bound to loopback only.
+ *  - GATEWAY_PORT: certificate-pinned TLS streaming gateway for remote generation.
+ *    The same application HTTP client is used for local and remote inference.
  */
 object RemoteProtocol {
     const val CONTROL_PORT = 8808
     const val GENERATION_PORT = 8081
-    const val PROTOCOL_VERSION = 1
+    const val GATEWAY_PORT = 8082
+    const val AUTH_HEADER = "X-LocalDream-Key"
+    const val PROTOCOL_VERSION = 3
     const val APP_ID = "localdream"
 
     const val PATH_INFO = "/info"
@@ -37,7 +38,7 @@ object RemoteProtocol {
     const val STATE_ERROR = "error"
 }
 
-/** Identity block returned by GET /info (the only unauthenticated endpoint). */
+/** Identity block returned by public GET /info. All other endpoints require a session key. */
 data class RemoteHostInfo(
     val protocol: Int,
     val version: String,

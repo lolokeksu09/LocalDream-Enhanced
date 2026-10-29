@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backend_lan_warning_body">This setting allows devices on your network to access the image-generation backend on port 8081 without authentication. Only enable it on a trusted private network and turn it off when no longer needed.</string>
+</resources>

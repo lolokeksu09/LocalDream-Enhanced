@@ -10,6 +10,9 @@ import io.github.xororz.localdream.R
 import io.github.xororz.localdream.remote.RemoteApiClient
 import io.github.xororz.localdream.remote.RemoteCatalog
 import io.github.xororz.localdream.remote.RemoteProtocol
+import io.github.xororz.localdream.remote.RemotePairingKey
+import io.github.xororz.localdream.remote.RemoteSession
+import io.github.xororz.localdream.remote.RemoteTls
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,11 +23,15 @@ data class RemoteConnection(
     val host: String,
     val port: Int,
     val deviceName: String,
+    val sessionKey: String,
+    val fingerprint: String,
 )
 
 sealed class RemoteConnectResult {
     data class Success(val deviceName: String) : RemoteConnectResult()
     data object Unreachable : RemoteConnectResult()
+    data object KeyRejected : RemoteConnectResult()
+    data object IncompatibleHost : RemoteConnectResult()
 }
 
 /**
@@ -70,7 +77,7 @@ class RemoteRepository private constructor(private val context: Context) {
     val isActive: Boolean get() = connection != null
 
     fun client(): RemoteApiClient? = connection?.let {
-        RemoteApiClient(it.host, it.port)
+        RemoteApiClient(it.host, it.port, it.sessionKey, it.fingerprint)
     }
 
     fun resolutionsFor(modelId: String): List<Resolution> = resolutionsById[modelId].orEmpty()
@@ -101,33 +108,50 @@ class RemoteRepository private constructor(private val context: Context) {
         if (connection != null) return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val host = prefs.getString(KEY_HOST, null) ?: return
+        val pairing = RemoteCredentialStore.load(context) ?: return
         connection = RemoteConnection(
             host = host,
             port = prefs.getInt(KEY_PORT, RemoteProtocol.CONTROL_PORT),
             deviceName = prefs.getString(KEY_NAME, host) ?: host,
+            sessionKey = pairing.secret,
+            fingerprint = pairing.fingerprint,
         )
+        RemoteSession.activate(host, pairing.secret, pairing.fingerprint)
     }
 
     /**
      * Verifies the host at [hostInput] ("ip" or "ip:port"), fetches its
      * catalog and persists the link on success.
      */
-    suspend fun connect(hostInput: String): RemoteConnectResult {
+    suspend fun connect(hostInput: String, pairingCode: String): RemoteConnectResult {
         val host = hostInput.substringBefore(':').trim()
         val port = hostInput.substringAfter(':', "").toIntOrNull()
             ?: RemoteProtocol.CONTROL_PORT
-        if (host.isEmpty()) return RemoteConnectResult.Unreachable
+        val pairing = RemoteTls.parse(pairingCode)
+        if (host.isEmpty() || port !in 1..65535 || pairing == null) {
+            return RemoteConnectResult.Unreachable
+        }
 
-        val client = RemoteApiClient(host, port)
+        val client = RemoteApiClient(host, port, pairing.secret, pairing.fingerprint)
         val info = client.fetchInfo() ?: return RemoteConnectResult.Unreachable
-        val catalog = client.fetchCatalog() ?: return RemoteConnectResult.Unreachable
+        if (info.protocol != RemoteProtocol.PROTOCOL_VERSION) return RemoteConnectResult.IncompatibleHost
+        val catalog = client.fetchCatalog() ?: return RemoteConnectResult.KeyRejected
 
         val name = info.deviceName.ifEmpty { host }
-        connection = RemoteConnection(host, port, name)
+        // Seal credentials before changing the active connection. An unavailable
+        // Android Keystore must fail closed rather than save a plaintext secret.
+        try {
+            RemoteCredentialStore.save(context, pairing)
+        } catch (_: Exception) {
+            return RemoteConnectResult.Unreachable
+        }
+        connection = RemoteConnection(host, port, name, pairing.secret, pairing.fingerprint)
+        RemoteSession.activate(host, pairing.secret, pairing.fingerprint)
         applyCatalog(catalog)
         online = true
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             putString(KEY_HOST, host)
+            remove(KEY_CODE) // erase legacy plaintext key
             putInt(KEY_PORT, port)
             putString(KEY_NAME, name)
         }
@@ -154,6 +178,8 @@ class RemoteRepository private constructor(private val context: Context) {
 
     /** Drops the saved link and returns the list screens to local mode. */
     fun disconnect() {
+        RemoteSession.clear()
+        RemoteCredentialStore.clear(context)
         connection = null
         models = emptyList()
         resolutionsById = emptyMap()
