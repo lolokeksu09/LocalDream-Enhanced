@@ -4,10 +4,7 @@ import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -81,7 +78,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -152,25 +148,10 @@ internal fun ModelRunResultPage(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        val iconScale = remember { Animatable(1f) }
-                        LaunchedEffect(Unit) {
-                            iconScale.animateTo(
-                                targetValue = 1.1f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(1500),
-                                    repeatMode = RepeatMode.Reverse,
-                                ),
-                            )
-                        }
                         Icon(
                             imageVector = Icons.Default.Image,
                             contentDescription = null,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .graphicsLayer(
-                                    scaleX = iconScale.value,
-                                    scaleY = iconScale.value,
-                                ),
+                            modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                         Text(
@@ -200,15 +181,50 @@ internal fun ModelRunResultPage(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        // The shadowed Surface stays outside AnimatedContent: a
+                        // drop shadow rendered inside the crossfade's alpha layer
+                        // composites with a rectangular outline and flashes square
+                        // corners. Keeping it static lets only the image crossfade,
+                        // clipped to the rounded shape.
+                        Surface(
+                            onClick = onPreviewClick,
+                            enabled = currentBitmap != null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f),
+                            shape = MaterialTheme.shapes.medium,
+                            shadowElevation = 4.dp,
+                        ) {
+                            AnimatedContent(
+                                targetState = imageVersion to currentBitmap,
+                                modifier = Modifier.fillMaxSize(),
+                                transitionSpec = {
+                                    fadeIn(animationSpec = Motion.Fade) togetherWith
+                                        fadeOut(animationSpec = Motion.FadeOut)
+                                },
+                                label = "ImagePreviewCrossfade",
+                            ) { (_, bitmap) ->
+                                bitmap?.let {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(
+                                            LocalContext.current,
+                                        )
+                                            .data(it)
+                                            .size(coil.size.Size.ORIGINAL)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = stringResource(R.string.ld_generated_image),
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                stringResource(R.string.result_tab),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
                             currentBitmap?.let { bitmap ->
                                 Row(
                                     modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -268,45 +284,6 @@ internal fun ModelRunResultPage(
                                             contentDescription = stringResource(R.string.ld_save_image),
                                         )
                                     }
-                                }
-                            }
-                        }
-
-                        // The shadowed Surface stays outside AnimatedContent: a
-                        // drop shadow rendered inside the crossfade's alpha layer
-                        // composites with a rectangular outline and flashes square
-                        // corners. Keeping it static lets only the image crossfade,
-                        // clipped to the rounded shape.
-                        Surface(
-                            onClick = onPreviewClick,
-                            enabled = currentBitmap != null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f),
-                            shape = MaterialTheme.shapes.medium,
-                            shadowElevation = 4.dp,
-                        ) {
-                            AnimatedContent(
-                                targetState = imageVersion to currentBitmap,
-                                modifier = Modifier.fillMaxSize(),
-                                transitionSpec = {
-                                    fadeIn(animationSpec = Motion.Fade) togetherWith
-                                        fadeOut(animationSpec = Motion.FadeOut)
-                                },
-                                label = "ImagePreviewCrossfade",
-                            ) { (_, bitmap) ->
-                                bitmap?.let {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(
-                                            LocalContext.current,
-                                        )
-                                            .data(it)
-                                            .size(coil.size.Size.ORIGINAL)
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = stringResource(R.string.ld_generated_image),
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
                                 }
                             }
                         }
