@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,7 +73,7 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun HistoryFilterBar(
     filter: HistoryFilter,
@@ -81,13 +83,13 @@ fun HistoryFilterBar(
     onSetAllModels: () -> Unit,
 ) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-        Row(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             // The current/all shortcut only makes sense inside a model run
             // screen; the global history screen scopes models via the sheet.
@@ -95,6 +97,7 @@ fun HistoryFilterBar(
                 val isCurrentOnly = filter.modelIds == setOf(currentModelId)
                 val isAllModels = filter.modelIds == null
                 Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(
                         ButtonGroupDefaults.ConnectedSpaceBetween,
                     ),

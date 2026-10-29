@@ -36,7 +36,7 @@ internal fun SwitchSettingRow(
             .fillMaxWidth()
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
